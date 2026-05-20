@@ -31,8 +31,10 @@ pi-dwight/
       visibility-format.ts  Display formatting for visibility rules
       visibility-format.test.ts
     infra/
-      config.ts             Config file CRUD (accounts, disabled models/providers)
+      config.ts             Config file CRUD (accounts, aliases, disabled models/providers)
       config.test.ts
+      alias.ts              Alias CRUD (add/remove/find/list)
+      alias.test.ts
       visibility-ui.ts      Interactive UI pickers for enable/disable
       visibility-ui.test.ts
       visibility-registry.test.ts

@@ -14,9 +14,11 @@ index.ts (entry)
   │     └── src/infra/config.ts      Reads disabled models/providers
   ├── src/lib/visibility-format.ts   Display formatting
   │     └── src/infra/config.ts      Reads visibility state
-  └── src/infra/config.ts            Config file persistence
-      src/infra/visibility-ui.ts     Interactive picker UI
-          └── src/infra/config.ts    Writes disabled models/providers
+  ├── src/infra/config.ts            Config file persistence (accounts, aliases, visibility)
+  ├── src/infra/alias.ts             Alias CRUD (reads/writes via config)
+  │     └── src/infra/config.ts
+  └── src/infra/visibility-ui.ts     Interactive picker UI
+      └── src/infra/config.ts        Writes disabled models/providers
 ```
 
 **Dependency direction**: `index → domain/lib/infra`. Domain depends on infra (config reads).
@@ -28,8 +30,8 @@ Business modules (`domain/*`, `lib/*`) have zero external deps.
 ## Key Design Decisions
 
 ### Config as single source of truth
-All account and visibility state lives in `~/.pi/agent/multi-account.json`.
-Every read/write goes through `src/infra/config.ts`. No in-memory caching.
+All account, alias, and visibility state lives in `~/.pi/agent/multi-account.json`.
+Every read/write goes through `src/infra/config.ts` and `src/infra/alias.ts`. No in-memory caching.
 
 ### Registry patching for visibility
 `src/domain/visibility.ts` patches `modelRegistry.getAvailable()` at runtime to filter

@@ -20,10 +20,20 @@ export interface DisabledModel {
   model: string;
 }
 
+export interface Alias {
+  /** Unique short name (used as provider: a/<name>) */
+  name: string;
+  /** Existing account provider name (e.g., "openai-personal") */
+  account: string;
+  /** Model id from that provider (e.g., "gpt-5.5") */
+  model: string;
+}
+
 export interface AccountsConfig {
   accounts: Account[];
   disabledProviders: string[];
   disabledModels: DisabledModel[];
+  aliases?: Alias[];
 }
 
 export interface ModelLike {
@@ -55,6 +65,7 @@ function normalizeConfig(config: Partial<AccountsConfig>): AccountsConfig {
     accounts: config.accounts ?? [],
     disabledProviders: config.disabledProviders ?? [],
     disabledModels: config.disabledModels ?? [],
+    aliases: config.aliases ?? [],
   };
 }
 
@@ -71,7 +82,7 @@ export function readConfig(): AccountsConfig {
   }
 }
 
-function writeConfig(config: AccountsConfig): void {
+export function writeConfig(config: AccountsConfig): void {
   const path = configPath();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");

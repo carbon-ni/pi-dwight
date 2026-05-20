@@ -34,6 +34,11 @@ import {
   readConfig,
   removeAccount,
 } from "./src/infra/config.js";
+import {
+  addAlias,
+  listAliases,
+  removeAlias,
+} from "./src/infra/alias.js";
 import { getProviderType, getProviderTypeNames } from "./src/domain/providers.js";
 import {
   applyVisibilityRules,
@@ -177,9 +182,43 @@ function registerAccountProvider(
   });
 }
 
+/** Register all aliases as pi providers (a/<name> → account+model). */
+function registerAllAliases(pi: ExtensionAPI): void {
+  for (const alias of listAliases()) {
+    registerAliasProvider(pi, alias);
+  }
+}
+
+function registerAliasProvider(pi: ExtensionAPI, alias: { name: string; account: string; model: string }): void {
+  // account is like "openai-personal" → split into provider type + account id
+  const account = findAccountByProviderName(alias.account);
+  if (!account) return;
+
+  const typeDef = getProviderType(account.provider);
+  if (!typeDef) return;
+
+  const modelDef = typeDef.models.find((m) => m.id === alias.model);
+  if (!modelDef) return;
+
+  pi.registerProvider(`a/${alias.name}`, {
+    name: `⭐ ${alias.name}`,
+    baseUrl: typeDef.baseUrl,
+    api: typeDef.api,
+    models: [modelDef],
+    oauth: createOauthProvider(account.id),
+  });
+}
+
+/** Parse "openai-personal" → { provider: "openai", id: "personal" } */
+function findAccountByProviderName(providerName: string) {
+  const config = readConfig();
+  return config.accounts.find((a) => `${a.provider}-${a.id}` === providerName);
+}
+
 export default function (pi: ExtensionAPI) {
   // Load all accounts on startup
   registerAllAccounts(pi);
+  registerAllAliases(pi);
 
   pi.on("session_start", async (_event, ctx) => {
     await applyVisibilityRules(
@@ -202,6 +241,9 @@ export default function (pi: ExtensionAPI) {
         "disable-model",
         "enable-model",
         "visibility",
+        "alias-add",
+        "alias-remove",
+        "alias-list",
       ];
       const matching = subcommands.filter((s) => s.startsWith(prefix));
       if (matching.length > 0) {
@@ -384,9 +426,82 @@ export default function (pi: ExtensionAPI) {
           break;
         }
 
+        case "alias-add": {
+          const name = parts[1];
+          const account = parts[2];
+          const model = parts[3];
+
+          if (!name || !account || !model) {
+            ctx.ui.notify(
+              "Usage: /multi-account alias-add <name> <account> <model>\n" +
+                "Example: /multi-account alias-add my-fav openai-personal gpt-5.5\n" +
+                "Then use: pi --model a/my-fav",
+              "warning",
+            );
+            return;
+          }
+
+          const sourceAccount = findAccountByProviderName(account);
+          if (!sourceAccount) {
+            ctx.ui.notify(
+              `Account "${account}" not found. Use /multi-account list to see accounts.`,
+              "error",
+            );
+            return;
+          }
+
+          const typeDef = getProviderType(sourceAccount.provider);
+          if (!typeDef?.models.find((m) => m.id === model)) {
+            ctx.ui.notify(
+              `Model "${model}" not found for provider "${sourceAccount.provider}".\n` +
+                `Available: ${typeDef?.models.map((m) => m.id).join(", ")}`,
+              "error",
+            );
+            return;
+          }
+
+          addAlias({ name, account, model });
+          registerAliasProvider(pi, { name, account, model });
+          ctx.ui.notify(
+            `Alias "a/${name}" → ${account}/${model} registered.\nUse: pi --model a/${name}`,
+            "info",
+          );
+          break;
+        }
+
+        case "alias-remove": {
+          const name = parts[1];
+          if (!name) {
+            ctx.ui.notify(
+              "Usage: /multi-account alias-remove <name>",
+              "warning",
+            );
+            return;
+          }
+
+          if (removeAlias(name)) {
+            pi.unregisterProvider(`a/${name}`);
+            ctx.ui.notify(`Alias "a/${name}" removed.`, "info");
+          } else {
+            ctx.ui.notify(`Alias "${name}" not found.`, "error");
+          }
+          break;
+        }
+
+        case "alias-list": {
+          const aliases = listAliases();
+          if (aliases.length === 0) {
+            ctx.ui.notify("No aliases configured. Use /multi-account alias-add ...", "info");
+            return;
+          }
+          const lines = aliases.map((a) => `  a/${a.name} → ${a.account}/${a.model}`);
+          ctx.ui.notify(`Aliases:\n${lines.join("\n")}`, "info");
+          break;
+        }
+
         default:
           ctx.ui.notify(
-            `Unknown subcommand "${sub}". Use: add, list, remove, show, disable-provider, enable-provider, disable-model, enable-model, visibility`,
+            `Unknown subcommand "${sub}". Use: add, list, remove, show, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
             "error",
           );
       }
