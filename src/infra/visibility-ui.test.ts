@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { disableModel, disableProvider, readConfig, setConfigDir } from "../config.js";
+import { disableModel, disableProvider, readConfig, setConfigDir } from "./config.js";
 import {
   disableModelWithPicker,
   disableProviderWithPicker,
   enableModelWithPicker,
   enableProviderWithPicker,
   type PickerModel,
-} from "../visibility-ui.js";
+} from "./visibility-ui.js";
 
 describe("visibility ui", () => {
   let tmpDir: string;

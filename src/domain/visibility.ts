@@ -1,4 +1,4 @@
-import { filterVisibleModels } from "./config.js";
+import { filterVisibleModels } from "../infra/config.js";
 
 export interface RegistryModel {
   provider: string;

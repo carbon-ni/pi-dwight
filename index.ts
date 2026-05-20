@@ -33,21 +33,21 @@ import {
   listAccounts,
   readConfig,
   removeAccount,
-} from "./config.js";
-import { getProviderType, getProviderTypeNames } from "./providers.js";
+} from "./src/infra/config.js";
+import { getProviderType, getProviderTypeNames } from "./src/domain/providers.js";
 import {
   applyVisibilityRules,
   type ModelRegistryReader,
   type ProviderRegistrar,
   type RegistryModel,
-} from "./visibility.js";
+} from "./src/domain/visibility.js";
 import {
   disableModelWithPicker,
   disableProviderWithPicker,
   enableModelWithPicker,
   enableProviderWithPicker,
-} from "./visibility-ui.js";
-import { formatVisibilityRules } from "./visibility-format.js";
+} from "./src/infra/visibility-ui.js";
+import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.

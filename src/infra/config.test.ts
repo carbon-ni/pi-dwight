@@ -10,7 +10,7 @@ import {
   setConfigDir,
   getConfigPath,
   type Account,
-} from "../config.js";
+} from "./config.js";
 
 describe("config", () => {
   let tmpDir: string;
@@ -109,7 +109,7 @@ describe("config", () => {
 
   describe("provider visibility", () => {
     it("disables and enables a provider globally", async () => {
-      const config = await import("../config.js");
+      const config = await import("./config.js");
 
       expect(config.disableProvider("openrouter")).toBe(true);
       expect(config.isProviderDisabled("openrouter")).toBe(true);
@@ -121,7 +121,7 @@ describe("config", () => {
     });
 
     it("is idempotent when disabling or enabling providers", async () => {
-      const config = await import("../config.js");
+      const config = await import("./config.js");
 
       expect(config.disableProvider("openrouter")).toBe(true);
       expect(config.disableProvider("openrouter")).toBe(false);
@@ -133,7 +133,7 @@ describe("config", () => {
 
   describe("model visibility", () => {
     it("disables and enables a provider model globally", async () => {
-      const config = await import("../config.js");
+      const config = await import("./config.js");
 
       expect(config.disableModel("openrouter", "anthropic/claude-opus-4.1")).toBe(true);
       expect(config.isModelDisabled("openrouter", "anthropic/claude-opus-4.1")).toBe(true);
@@ -147,7 +147,7 @@ describe("config", () => {
     });
 
     it("keeps same model id independent per provider", async () => {
-      const config = await import("../config.js");
+      const config = await import("./config.js");
 
       config.disableModel("openrouter", "claude-opus");
 
@@ -156,7 +156,7 @@ describe("config", () => {
     });
 
     it("filters hidden providers and models", async () => {
-      const config = await import("../config.js");
+      const config = await import("./config.js");
       const models = [{ id: "claude-opus" }, { id: "claude-sonnet" }];
 
       config.disableModel("openrouter", "claude-opus");

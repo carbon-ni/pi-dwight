@@ -1,4 +1,4 @@
-import { readConfig } from "./config.js";
+import { readConfig } from "../infra/config.js";
 
 export function formatVisibilityRules(): string {
   const config = readConfig();

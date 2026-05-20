@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getProviderType, getProviderTypeNames, PROVIDER_TYPES } from "../providers.js";
+import { getProviderType, getProviderTypeNames, PROVIDER_TYPES } from "./providers.js";
 
 describe("providers", () => {
   describe("PROVIDER_TYPES", () => {

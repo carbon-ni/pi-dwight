@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { disableModel, disableProvider, enableProvider, setConfigDir } from "../config.js";
-import { applyVisibilityRules, clearVisibilityBaseline, type RegistryModel } from "../visibility.js";
+import { disableModel, disableProvider, enableProvider, setConfigDir } from "../infra/config.js";
+import { applyVisibilityRules, clearVisibilityBaseline, type RegistryModel } from "./visibility.js";
 
 describe("visibility", () => {
   let tmpDir: string;

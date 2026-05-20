@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: eslint
+        entry: npx eslint '*.ts' '__tests__/**/*.ts'
+        language: system
+        pass_filenames: false
+        types: [ts]
+
+      - id: typecheck
+        name: typecheck
+        entry: npx tsc --noEmit
+        language: system
+        pass_filenames: false
+        types: [ts]
+
+      - id: test
+        name: vitest
+        entry: npx vitest run --reporter=verbose
+        language: system
+        pass_filenames: false
+        types: [ts]
