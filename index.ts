@@ -52,6 +52,7 @@ import {
   enableModelWithPicker,
   enableProviderWithPicker,
 } from "./src/infra/visibility-ui.js";
+import { addAliasWithPicker, type AliasPickerUi } from "./src/infra/alias-ui.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 
 // ── Dynamic import of internal OAuth utilities ──
@@ -431,9 +432,25 @@ export default function (pi: ExtensionAPI) {
           const provider = parts[2];
           const model = parts[3];
 
-          if (!name || !provider || !model) {
+          // No args → picker flow
+          if (!name) {
+            const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
+            const models = await getAvailableModels(modelCtx);
+            const result = await addAliasWithPicker(
+              ctx.ui as unknown as AliasPickerUi,
+              models.map((m: RegistryModel) => ({ provider: m.provider, id: m.id })),
+            );
+            if (result) {
+              registerAliasProvider(pi, result);
+            }
+            return;
+          }
+
+          // CLI flow with args
+          if (!provider || !model) {
             ctx.ui.notify(
               "Usage: /multi-account alias-add <name> <provider> <model>\n" +
+                "Or: /multi-account alias-add (interactive picker)\n" +
                 "Example: /multi-account alias-add my-fav openai-personal gpt-5.5\n" +
                 "Then use: pi --model a/my-fav",
               "warning",
