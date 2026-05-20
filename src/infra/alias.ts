@@ -1,10 +1,10 @@
 /**
- * Alias config: short names that map to a specific account+model combo.
- * Stored alongside accounts in ~/.pi/agent/multi-account.json
+ * Alias config: short names that map to a provider+model combo.
+ * Stored in ~/.pi/agent/multi-account.json
  *
- * An alias "my-fav" pointing to openai-personal/gpt-5.5 registers as
- * provider name "a/my-fav" in pi, so you can do:
- *   pi --model a/my-fav
+ * "foobar" → { provider: "openai-personal", model: "gpt-5.5" }
+ * registers as provider "a/foobar" in pi:
+ *   pi --model a/foobar
  */
 import { type Alias, readConfig, writeConfig } from "./config.js";
 

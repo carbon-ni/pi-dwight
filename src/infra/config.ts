@@ -23,9 +23,9 @@ export interface DisabledModel {
 export interface Alias {
   /** Unique short name (used as provider: a/<name>) */
   name: string;
-  /** Existing account provider name (e.g., "openai-personal") */
-  account: string;
-  /** Model id from that provider (e.g., "gpt-5.5") */
+  /** Target provider name in pi's model registry (e.g., "openai-personal", "openrouter") */
+  provider: string;
+  /** Model id (e.g., "gpt-5.5", "anthropic/claude-opus-4.1") */
   model: string;
 }
 

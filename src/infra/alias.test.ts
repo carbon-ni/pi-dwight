@@ -40,29 +40,29 @@ describe("alias", () => {
 
   describe("addAlias", () => {
     it("adds a new alias", () => {
-      const alias: Alias = { name: "my-fav", account: "openai-personal", model: "gpt-5.5" };
+      const alias: Alias = { name: "my-fav", provider: "openai-personal", model: "gpt-5.5" };
       addAlias(alias);
       expect(listAliases()).toEqual([alias]);
     });
 
     it("updates existing alias with same name", () => {
-      addAlias({ name: "my-fav", account: "openai-personal", model: "gpt-5.5" });
-      addAlias({ name: "my-fav", account: "openai-work", model: "gpt-5.4" });
+      addAlias({ name: "my-fav", provider: "openai-personal", model: "gpt-5.5" });
+      addAlias({ name: "my-fav", provider: "openai-work", model: "gpt-5.4" });
       const aliases = listAliases();
       expect(aliases).toHaveLength(1);
-      expect(aliases[0]).toEqual({ name: "my-fav", account: "openai-work", model: "gpt-5.4" });
+      expect(aliases[0]).toEqual({ name: "my-fav", provider: "openai-work", model: "gpt-5.4" });
     });
 
     it("allows multiple aliases", () => {
-      addAlias({ name: "my-fav", account: "openai-personal", model: "gpt-5.5" });
-      addAlias({ name: "fast", account: "openai-work", model: "gpt-5.4" });
+      addAlias({ name: "my-fav", provider: "openai-personal", model: "gpt-5.5" });
+      addAlias({ name: "fast", provider: "openai-work", model: "gpt-5.4" });
       expect(listAliases()).toHaveLength(2);
     });
   });
 
   describe("removeAlias", () => {
     it("removes an existing alias and returns true", () => {
-      addAlias({ name: "my-fav", account: "openai-personal", model: "gpt-5.5" });
+      addAlias({ name: "my-fav", provider: "openai-personal", model: "gpt-5.5" });
       expect(removeAlias("my-fav")).toBe(true);
       expect(listAliases()).toEqual([]);
     });
@@ -74,7 +74,7 @@ describe("alias", () => {
 
   describe("findAlias", () => {
     it("finds existing alias", () => {
-      const alias: Alias = { name: "my-fav", account: "openai-personal", model: "gpt-5.5" };
+      const alias: Alias = { name: "my-fav", provider: "openai-personal", model: "gpt-5.5" };
       addAlias(alias);
       expect(findAlias("my-fav")).toEqual(alias);
     });

@@ -182,16 +182,16 @@ function registerAccountProvider(
   });
 }
 
-/** Register all aliases as pi providers (a/<name> → account+model). */
+/** Register all aliases as pi providers (a/<name> → provider+model). */
 function registerAllAliases(pi: ExtensionAPI): void {
   for (const alias of listAliases()) {
     registerAliasProvider(pi, alias);
   }
 }
 
-function registerAliasProvider(pi: ExtensionAPI, alias: { name: string; account: string; model: string }): void {
-  // account is like "openai-personal" → split into provider type + account id
-  const account = findAccountByProviderName(alias.account);
+function registerAliasProvider(pi: ExtensionAPI, alias: { name: string; provider: string; model: string }): void {
+  // Multi-account provider like "openai-personal" → find account + typeDef
+  const account = findAccountByProviderName(alias.provider);
   if (!account) return;
 
   const typeDef = getProviderType(account.provider);
@@ -428,12 +428,12 @@ export default function (pi: ExtensionAPI) {
 
         case "alias-add": {
           const name = parts[1];
-          const account = parts[2];
+          const provider = parts[2];
           const model = parts[3];
 
-          if (!name || !account || !model) {
+          if (!name || !provider || !model) {
             ctx.ui.notify(
-              "Usage: /multi-account alias-add <name> <account> <model>\n" +
+              "Usage: /multi-account alias-add <name> <provider> <model>\n" +
                 "Example: /multi-account alias-add my-fav openai-personal gpt-5.5\n" +
                 "Then use: pi --model a/my-fav",
               "warning",
@@ -441,29 +441,10 @@ export default function (pi: ExtensionAPI) {
             return;
           }
 
-          const sourceAccount = findAccountByProviderName(account);
-          if (!sourceAccount) {
-            ctx.ui.notify(
-              `Account "${account}" not found. Use /multi-account list to see accounts.`,
-              "error",
-            );
-            return;
-          }
-
-          const typeDef = getProviderType(sourceAccount.provider);
-          if (!typeDef?.models.find((m) => m.id === model)) {
-            ctx.ui.notify(
-              `Model "${model}" not found for provider "${sourceAccount.provider}".\n` +
-                `Available: ${typeDef?.models.map((m) => m.id).join(", ")}`,
-              "error",
-            );
-            return;
-          }
-
-          addAlias({ name, account, model });
-          registerAliasProvider(pi, { name, account, model });
+          addAlias({ name, provider, model });
+          registerAliasProvider(pi, { name, provider, model });
           ctx.ui.notify(
-            `Alias "a/${name}" → ${account}/${model} registered.\nUse: pi --model a/${name}`,
+            `Alias "a/${name}" → ${provider}/${model} registered.\nUse: pi --model a/${name}`,
             "info",
           );
           break;
@@ -494,7 +475,7 @@ export default function (pi: ExtensionAPI) {
             ctx.ui.notify("No aliases configured. Use /multi-account alias-add ...", "info");
             return;
           }
-          const lines = aliases.map((a) => `  a/${a.name} → ${a.account}/${a.model}`);
+          const lines = aliases.map((a) => `  a/${a.name} → ${a.provider}/${a.model}`);
           ctx.ui.notify(`Aliases:\n${lines.join("\n")}`, "info");
           break;
         }

@@ -30,12 +30,12 @@ Provider names follow the pattern `{provider}-{id}` (e.g., `openai-personal`, `o
 
 ### Aliases
 
-Short names that resolve to a specific account + model. Registered as provider `a/<name>` so pi picks them up natively.
+Short names that point to any provider + model. No validation — just name it and use it.
 
 ```
-/multi-account alias-add <name> <account> <model>    Create an alias
-/multi-account alias-list                             List all aliases
-/multi-account alias-remove <name>                    Remove an alias
+/multi-account alias-add <name> <provider> <model>    Create an alias
+/multi-account alias-list                              List all aliases
+/multi-account alias-remove <name>                     Remove an alias
 ```
 
 **Example:**
@@ -53,6 +53,8 @@ pi --model a/my-fav
 # or inside a session:
 /model a/my-fav
 ```
+
+Aliases register as providers named `a/<name>`. If the underlying provider + model exists at load time, the alias activates. If not, it's silently skipped.
 
 ### Visibility
 
