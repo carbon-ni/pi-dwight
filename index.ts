@@ -53,6 +53,9 @@ import {
   enableProviderWithPicker,
 } from "./src/infra/visibility-ui.js";
 import { addAliasWithPicker, type AliasPickerUi } from "./src/infra/alias-ui.js";
+import { hasExplicitModelArgument } from "./src/infra/cli.js";
+import { applyProjectDefaultModel } from "./src/infra/project-default-model.js";
+import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 
 // ── Dynamic import of internal OAuth utilities ──
@@ -226,6 +229,20 @@ export default function (pi: ExtensionAPI) {
       pi as unknown as ProviderRegistrar,
       ctx.modelRegistry as unknown as ModelRegistryReader,
     );
+
+    if (hasExplicitModelArgument(process.argv)) return;
+
+    const trustContext = ctx as unknown as { isProjectTrusted?: () => boolean | Promise<boolean> };
+    const isTrusted = trustContext.isProjectTrusted ? await trustContext.isProjectTrusted() : false;
+    const projectDefaults = readProjectDefaults(ctx.cwd, isTrusted);
+    const applied = await applyProjectDefaultModel(
+      pi,
+      ctx.modelRegistry as unknown as { find(provider: string, model: string): unknown | undefined },
+      projectDefaults.defaultModels,
+    );
+    if (applied) {
+      ctx.ui.notify(`Dwight project default model: ${applied.provider}/${applied.model}`, "info");
+    }
   });
 
   // ── /multi-account <subcommand> ──

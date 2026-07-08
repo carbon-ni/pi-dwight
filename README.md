@@ -56,6 +56,27 @@ pi --model a/my-fav
 
 Aliases register as providers named `a/<name>`. If the underlying provider + model exists at load time, the alias activates. If not, it's silently skipped.
 
+### Project default models
+
+Set project-local model candidates in `.pi/dwight.json`. When you run `pi` without `--model`/`-m`, Dwight applies the first available model with credentials on session start. Project config is only read when the project is trusted.
+
+```json
+{
+  "defaultModels": [
+    { "provider": "openrouter", "model": "anthropic/claude-sonnet-4.5" },
+    { "provider": "anthropic", "model": "claude-sonnet-4-5" }
+  ]
+}
+```
+
+Single-model shorthand is also supported:
+
+```json
+{
+  "defaultModel": { "provider": "openai-personal", "model": "gpt-5.5" }
+}
+```
+
 ### Visibility
 
 Control which providers and models appear in your model list.
