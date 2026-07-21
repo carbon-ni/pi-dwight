@@ -6,6 +6,7 @@ import {
   addAccount,
   findAccount,
   listAccounts,
+  setAccountQuotaAccountId,
   removeAccount,
   setConfigDir,
   getConfigPath,
@@ -68,6 +69,19 @@ describe("config", () => {
       addAccount({ id: "work", provider: "openai", key: "sk-oai" });
       addAccount({ id: "work", provider: "anthropic", key: "sk-ant" });
       expect(listAccounts()).toHaveLength(2);
+    });
+  });
+
+  describe("quota account ID", () => {
+    it("persists the OpenAI account ID discovered during login", () => {
+      addAccount({ id: "personal", provider: "openai", key: "" });
+
+      expect(setAccountQuotaAccountId("openai", "personal", "acct_123")).toBe(true);
+      expect(findAccount("openai", "personal")).toMatchObject({ accountId: "acct_123" });
+    });
+
+    it("does not create an account while saving an account ID", () => {
+      expect(setAccountQuotaAccountId("openai", "missing", "acct_123")).toBe(false);
     });
   });
 

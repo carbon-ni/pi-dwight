@@ -33,6 +33,7 @@ import {
   listAccounts,
   readConfig,
   removeAccount,
+  setAccountQuotaAccountId,
 } from "./src/infra/config.js";
 import {
   addAlias,
@@ -134,6 +135,7 @@ function createOauthProvider(accountId: string) {
         onManualCodeInput: callbacks.onManualCodeInput,
         originator: `pi-multi-account-${accountId}`,
       });
+      setAccountQuotaAccountId("openai", accountId, result.accountId);
       return {
         access: result.access,
         refresh: result.refresh,
@@ -143,6 +145,7 @@ function createOauthProvider(accountId: string) {
     async refreshToken(credentials: OAuthCredentials): Promise<OAuthCredentials> {
       const { refreshOpenAICodexToken } = await loadOpenaiOauth();
       const result = await refreshOpenAICodexToken(credentials.refresh);
+      setAccountQuotaAccountId("openai", accountId, result.accountId);
       return {
         access: result.access,
         refresh: result.refresh,

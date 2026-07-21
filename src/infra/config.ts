@@ -13,6 +13,8 @@ export interface Account {
   provider: string;
   /** API key (unused for OAuth-based providers; stores empty string) */
   key: string;
+  /** Provider account ID required by its quota endpoint, when applicable. */
+  accountId?: string;
 }
 
 export interface DisabledModel {
@@ -99,6 +101,22 @@ export function addAccount(account: Account): void {
     config.accounts.push(account);
   }
   writeConfig(config);
+}
+
+export function setAccountQuotaAccountId(
+  provider: string,
+  id: string,
+  accountId: string,
+): boolean {
+  const config = readConfig();
+  const account = config.accounts.find(
+    (entry) => entry.id === id && entry.provider === provider,
+  );
+  if (!account) return false;
+
+  account.accountId = accountId;
+  writeConfig(config);
+  return true;
 }
 
 export function removeAccount(provider: string, id: string): boolean {
