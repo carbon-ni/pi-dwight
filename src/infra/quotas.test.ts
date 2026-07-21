@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchMultiAccountQuota,
   fetchOpenAiCodexQuota,
+  fetchZaiQuota,
   parseOpenAiCodexQuota,
+  parseZaiQuota,
 } from "./quotas.js";
 
 describe("parseOpenAiCodexQuota", () => {
@@ -22,6 +24,22 @@ describe("parseOpenAiCodexQuota", () => {
 
   it("returns no windows for an unrecognised response", () => {
     expect(parseOpenAiCodexQuota({})).toEqual([]);
+  });
+});
+
+describe("parseZaiQuota", () => {
+  it("maps token and web-search limits", () => {
+    expect(parseZaiQuota({ data: { limits: [
+      { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 20, nextResetTime: 1_700_000_000_000 },
+      { type: "TIME_LIMIT", usage: 100, currentValue: 25, nextResetTime: 1_700_100_000_000 },
+    ] } })).toEqual([
+      { label: "5h", usedPercent: 20, resetsAt: new Date(1_700_000_000_000) },
+      { label: "Web / month", usedPercent: 25, resetsAt: new Date(1_700_100_000_000) },
+    ]);
+  });
+
+  it("ignores unknown or invalid limits", () => {
+    expect(parseZaiQuota({ data: { limits: [{ type: "TIME_LIMIT", usage: 0 }] } })).toEqual([]);
   });
 });
 
@@ -81,6 +99,21 @@ describe("fetchOpenAiCodexQuota", () => {
     );
   });
 
+  it("uses a Z.ai multi-account provider credential", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { limits: [] } }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("zai-key") };
+
+    await fetchMultiAccountQuota(authStorage, { provider: "zai", id: "work", key: "" }, fetcher);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("zai-work");
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.z.ai/api/monitor/usage/quota/limit",
+      expect.any(Object),
+    );
+  });
+
   it("returns a readable error for a failed request", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: { message: "Unauthorized" } }), { status: 401 }),
@@ -93,5 +126,27 @@ describe("fetchOpenAiCodexQuota", () => {
         fetcher,
       }),
     ).resolves.toEqual({ success: false, error: "Unauthorized" });
+  });
+});
+
+describe("fetchZaiQuota", () => {
+  it("requests the Z.ai quota endpoint with the API key", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { limits: [] } }), { status: 200 }),
+    );
+
+    await expect(fetchZaiQuota({ apiKey: "zai-key", fetcher })).resolves.toEqual({ success: true, windows: [] });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.z.ai/api/monitor/usage/quota/limit",
+      expect.objectContaining({ headers: { Authorization: "Bearer zai-key", Accept: "application/json" } }),
+    );
+  });
+
+  it("does not make a request without an API key", async () => {
+    const fetcher = vi.fn();
+
+    await expect(fetchZaiQuota({ fetcher })).resolves.toEqual({ success: false, error: "No Z.ai API key found" });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
