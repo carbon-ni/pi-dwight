@@ -60,6 +60,7 @@ import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 import { fetchMultiAccountQuota } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
+import { keyDisplayStatus } from "./src/lib/resolve-key.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -510,7 +511,7 @@ export default function (pi: ExtensionAPI) {
 
           const typeDef = getProviderType(account.provider);
           const authLine = typeDef?.auth === "apikey"
-            ? `Auth: ${account.key || "no key configured"}`
+            ? `Auth: ${keyDisplayStatus(account.key)}`
             : "Auth: /login to authenticate";
           ctx.ui.notify(
             [

@@ -11,7 +11,7 @@ export interface Account {
   id: string;
   /** Provider type key (e.g., "openai") */
   provider: string;
-  /** API key (unused for OAuth-based providers; stores empty string) */
+  /** API key or $ENV_VAR reference. Empty for OAuth-based providers. */
   key: string;
   /** Provider account ID required by its quota endpoint, when applicable. */
   accountId?: string;
