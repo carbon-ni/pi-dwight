@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { Account } from "./config.js";
 
 export interface QuotaWindow {
@@ -64,6 +67,18 @@ export function parseOpenAiCodexQuota(data: unknown): QuotaWindow[] {
   return windows;
 }
 
+function readOpenAiAccountId(provider: string): string | undefined {
+  try {
+    const auth = JSON.parse(readFileSync(join(homedir(), ".pi", "agent", "auth.json"), "utf8")) as Record<string, unknown>;
+    const credential = auth[provider];
+    if (!credential || typeof credential !== "object") return undefined;
+    const accountId = (credential as { accountId?: unknown }).accountId;
+    return typeof accountId === "string" ? accountId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function fetchMultiAccountQuota(
   authStorage: AccountCredentialSource,
   account: Account,
@@ -73,7 +88,7 @@ export async function fetchMultiAccountQuota(
   if (account.provider === "openai") {
     return fetchOpenAiCodexQuota({
       accessToken: apiKey,
-      accountId: account.accountId,
+      accountId: account.accountId ?? readOpenAiAccountId(`${account.provider}-${account.id}`),
       fetcher,
     });
   }

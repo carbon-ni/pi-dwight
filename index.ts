@@ -58,6 +58,8 @@ import { hasExplicitModelArgument } from "./src/infra/cli.js";
 import { applyProjectDefaultModel } from "./src/infra/project-default-model.js";
 import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
+import { fetchMultiAccountQuota } from "./src/infra/quotas.js";
+import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -119,6 +121,36 @@ async function getAvailableModels(ctx: { modelRegistry: ModelRegistryReader }): 
 
 async function refreshVisibility(pi: ExtensionAPI, ctx: { modelRegistry: ModelRegistryReader }): Promise<void> {
   await applyVisibilityRules(pi as unknown as ProviderRegistrar, ctx.modelRegistry);
+}
+
+type QuotaStatusContext = {
+  model?: { provider: string };
+  modelRegistry: { getApiKeyForProvider(provider: string): Promise<string | undefined> };
+  ui: {
+    setStatus(key: string, value: string | undefined): void;
+    theme: { fg(color: "success" | "warning" | "error", text: string): string };
+  };
+};
+
+async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
+  const provider = ctx.model?.provider;
+  const account = findAccountForProvider(listAccounts(), provider);
+  if (!account) {
+    ctx.ui.setStatus("quotas", undefined);
+    return;
+  }
+
+  const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
+  const result = await fetchMultiAccountQuota(credentials, account);
+  const status = formatQuotaStatus(account.id, result);
+  if (!status || !result.success) {
+    ctx.ui.setStatus("quotas", undefined);
+    return;
+  }
+
+  const highestUsage = Math.max(...result.windows.map((window) => window.usedPercent));
+  const color = highestUsage >= 90 ? "error" : highestUsage >= 70 ? "warning" : "success";
+  ctx.ui.setStatus("quotas", ctx.ui.theme.fg(color, `◷ ${status}`));
 }
 
 /** Create an OAuth provider config for a specific account. */
@@ -228,6 +260,7 @@ export default function (pi: ExtensionAPI) {
   registerAllAliases(pi);
 
   pi.on("session_start", async (_event, ctx) => {
+    await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
     await applyVisibilityRules(
       pi as unknown as ProviderRegistrar,
       ctx.modelRegistry as unknown as ModelRegistryReader,
@@ -246,6 +279,14 @@ export default function (pi: ExtensionAPI) {
     if (applied) {
       ctx.ui.notify(`Dwight project default model: ${applied.provider}/${applied.model}`, "info");
     }
+  });
+
+  pi.on("model_select", async (_event, ctx) => {
+    await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
+  });
+
+  pi.on("turn_end", async (_event, ctx) => {
+    await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
   });
 
   // ── /multi-account <subcommand> ──
