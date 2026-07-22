@@ -27,6 +27,8 @@ export interface ProviderTypeDef {
   api: "openai-codex-responses" | "openai-completions" | "anthropic-messages" | "google-generative-language";
   /** Available models for this provider */
   models: ModelDefinition[];
+  /** Auth mode: "oauth" for /login flow, "apikey" for plain API key */
+  auth: "oauth" | "apikey";
 }
 
 const CODEX_MODELS: ModelDefinition[] = [
@@ -98,6 +100,43 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     baseUrl: "https://chatgpt.com/backend-api",
     api: "openai-codex-responses",
     models: CODEX_MODELS,
+    auth: "oauth",
+  },
+  zai: {
+    name: "Z.AI",
+    baseUrl: "https://api.z.ai/api/paas/v4",
+    api: "openai-completions",
+    auth: "apikey",
+    models: [
+      {
+        id: "glm-5.2",
+        name: "GLM-5.2",
+        reasoning: true,
+        thinkingLevelMap: { xhigh: "xhigh", minimal: "low" },
+        input: ["text", "image"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+      },
+      {
+        id: "glm-5.1",
+        name: "GLM-5.1",
+        reasoning: true,
+        input: ["text", "image"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 1_000_000,
+        maxTokens: 128_000,
+      },
+      {
+        id: "glm-5v-turbo",
+        name: "GLM-5V-Turbo",
+        reasoning: false,
+        input: ["text", "image"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128_000,
+        maxTokens: 32_768,
+      },
+    ],
   },
 };
 

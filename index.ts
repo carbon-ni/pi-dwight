@@ -198,7 +198,7 @@ function registerAllAccounts(pi: ExtensionAPI): void {
   }
 }
 
-/** Register a single account as a pi provider with OAuth. */
+/** Register a single account as a pi provider. Uses OAuth or API key based on provider type. */
 function registerAccountProvider(
   pi: ExtensionAPI,
   accountId: string,
@@ -208,9 +208,21 @@ function registerAccountProvider(
   if (!typeDef) return;
 
   const name = providerName(providerType, accountId);
-
   const models = filterVisibleModels(name, typeDef.models);
   if (models.length === 0) return;
+
+  if (typeDef.auth === "apikey") {
+    const config = readConfig();
+    const account = config.accounts.find((a) => a.id === accountId && a.provider === providerType);
+    pi.registerProvider(name, {
+      name: `${typeDef.name} — ${accountId}`,
+      baseUrl: typeDef.baseUrl,
+      api: typeDef.api,
+      apiKey: account?.key || undefined,
+      models,
+    });
+    return;
+  }
 
   pi.registerProvider(name, {
     name: `${typeDef.name} — ${accountId}`,
@@ -349,7 +361,27 @@ export default function (pi: ExtensionAPI) {
             return;
           }
 
-          // Save account config (no API key needed — OAuth handles it)
+          // For API-key providers, store the key or $ENV_VAR reference.
+          if (typeDef.auth === "apikey") {
+            const key = parts[3];
+            if (!key) {
+              ctx.ui.notify(
+                `Usage: /multi-account add ${provider} <id> <$ENV_VAR|api-key>\n` +
+                  `Examples:\n` +
+                  `  /multi-account add zai personal $ZAI_API_KEY\n` +
+                  `  /multi-account add zai work $ZAI_WORK_KEY`,
+                "warning",
+              );
+              return;
+            }
+            addAccount({ id, provider, key });
+            registerAccountProvider(pi, id, provider);
+            const name = providerName(provider, id);
+            ctx.ui.notify(`Account "${name}" registered.`, "info");
+            break;
+          }
+
+          // OAuth providers
           addAccount({ id, provider, key: "" });
           registerAccountProvider(pi, id, provider);
 
@@ -477,11 +509,14 @@ export default function (pi: ExtensionAPI) {
           }
 
           const typeDef = getProviderType(account.provider);
+          const authLine = typeDef?.auth === "apikey"
+            ? `Auth: ${account.key || "no key configured"}`
+            : "Auth: /login to authenticate";
           ctx.ui.notify(
             [
               `Account: ${providerName(account.provider, account.id)}`,
               `Provider: ${typeDef?.name ?? account.provider}`,
-              `Auth: /login to authenticate`,
+              authLine,
             ].join("\n"),
             "info",
           );
