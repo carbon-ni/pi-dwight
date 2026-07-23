@@ -29,10 +29,10 @@ interface OpenAiCodexQuotaOptions {
 
 function usedPercent(window: unknown): number {
   if (!window || typeof window !== "object") return 0;
-  const value = (window as { percent_left?: unknown }).percent_left;
-  const percentLeft = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(percentLeft)) return 0;
-  return Math.max(0, Math.min(100, 100 - percentLeft));
+  const value = (window as { used_percent?: unknown }).used_percent;
+  const used = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(used)) return 0;
+  return Math.max(0, Math.min(100, used));
 }
 
 function resetAt(window: unknown): Date {

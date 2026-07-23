@@ -12,8 +12,8 @@ describe("parseOpenAiCodexQuota", () => {
     expect(
       parseOpenAiCodexQuota({
         rate_limit: {
-          primary_window: { percent_left: 75, reset_at: 1_700_000_000 },
-          secondary_window: { percent_left: 40, reset_at: 1_700_100_000 },
+          primary_window: { used_percent: 25, reset_at: 1_700_000_000 },
+          secondary_window: { used_percent: 60, reset_at: 1_700_100_000 },
         },
       }),
     ).toEqual([
