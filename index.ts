@@ -137,7 +137,7 @@ type QuotaStatusContext = {
   model?: { provider: string };
   modelRegistry: { getApiKeyForProvider(provider: string): Promise<string | undefined> };
   ui: {
-    setStatus(key: string, value: string | undefined): void;
+    setWidget(key: string, lines: string[] | undefined, opts?: { placement?: "aboveEditor" | "belowEditor" }): void;
     theme: { fg(color: "success" | "warning" | "error", text: string): string };
   };
 };
@@ -146,7 +146,7 @@ async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
   const provider = ctx.model?.provider;
   const account = findAccountForProvider(listAccounts(), provider);
   if (!account) {
-    ctx.ui.setStatus("quotas", undefined);
+    ctx.ui.setWidget("quotas", undefined);
     return;
   }
 
@@ -154,13 +154,13 @@ async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
   const result = await fetchMultiAccountQuota(credentials, account);
   const status = formatQuotaStatus(account.id, result);
   if (!status || !result.success) {
-    ctx.ui.setStatus("quotas", undefined);
+    ctx.ui.setWidget("quotas", undefined);
     return;
   }
 
   const highestUsage = Math.max(...result.windows.map((window) => window.usedPercent));
   const color = highestUsage >= 90 ? "error" : highestUsage >= 70 ? "warning" : "success";
-  ctx.ui.setStatus("quotas", ctx.ui.theme.fg(color, `◷ ${status}`));
+  ctx.ui.setWidget("quotas", [ctx.ui.theme.fg(color, `◷ ${status}`)]);
 }
 
 /** Create an OAuth provider config for a specific account. */
