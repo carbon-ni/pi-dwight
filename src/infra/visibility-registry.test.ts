@@ -2,8 +2,16 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { disableModel, disableProvider, enableProvider, setConfigDir } from "./config.js";
+import { disableModel, disableProvider, enableProvider, readConfig, setConfigDir } from "./config.js";
 import { installVisibilityFilter, type RegistryModel } from "../domain/visibility.js";
+
+function getFilter() {
+  const config = readConfig();
+  return {
+    disabledProviders: config.disabledProviders,
+    disabledModelIds: config.disabledModels,
+  };
+}
 
 describe("visibility registry filter", () => {
   let tmpDir: string;
@@ -29,7 +37,7 @@ describe("visibility registry filter", () => {
       },
     };
 
-    installVisibilityFilter(registry);
+    installVisibilityFilter(registry, getFilter);
 
     await expect(registry.getAvailable()).resolves.toEqual([
       { provider: "anthropic", id: "claude-opus" },
@@ -47,7 +55,7 @@ describe("visibility registry filter", () => {
       },
     };
 
-    installVisibilityFilter(registry);
+    installVisibilityFilter(registry, getFilter);
 
     expect(registry.getAvailable()).toEqual([
       { provider: "openrouter", id: "anthropic/claude-sonnet-4.5" },
@@ -62,7 +70,7 @@ describe("visibility registry filter", () => {
       },
     };
 
-    installVisibilityFilter(registry);
+    installVisibilityFilter(registry, getFilter);
     await expect(registry.getAvailable()).resolves.toEqual([]);
 
     enableProvider("github-copilot");

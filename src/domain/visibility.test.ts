@@ -1,85 +1,127 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { disableModel, disableProvider, enableProvider, setConfigDir } from "../infra/config.js";
-import { applyVisibilityRules, clearVisibilityBaseline, type RegistryModel } from "./visibility.js";
+import { describe, it, expect } from "vitest";
+import {
+  applyVisibilityRules,
+  clearVisibilityBaseline,
+  filterVisibleModels,
+  type RegistryModel,
+  type VisibilityFilter,
+} from "./visibility.js";
 
-describe("visibility", () => {
-  let tmpDir: string;
+const noFilter: VisibilityFilter = { disabledProviders: [], disabledModelIds: [] };
 
-  beforeEach(() => {
-    clearVisibilityBaseline();
-    tmpDir = mkdtempSync(join(tmpdir(), "multi-account-visibility-test-"));
-    setConfigDir(tmpDir);
+describe("filterVisibleModels", () => {
+  it("returns all models when nothing is disabled", () => {
+    const models = [
+      { id: "claude-opus-4-1", provider: "openrouter" },
+      { id: "claude-sonnet-4-5", provider: "openrouter" },
+    ];
+    expect(filterVisibleModels("openrouter", models, noFilter)).toEqual(models);
   });
 
-  afterEach(() => {
-    setConfigDir(undefined);
-    rmSync(tmpDir, { recursive: true, force: true });
+  it("returns empty when provider is disabled", () => {
+    const models = [{ id: "claude-opus" }, { id: "claude-sonnet" }];
+    const filter: VisibilityFilter = {
+      disabledProviders: ["openrouter"],
+      disabledModelIds: [],
+    };
+    expect(filterVisibleModels("openrouter", models, filter)).toEqual([]);
   });
 
-  it("overrides providers with visible models only", async () => {
-    disableModel("openrouter", "anthropic/claude-opus-4.1");
+  it("filters out disabled models within enabled provider", () => {
+    const models = [{ id: "claude-opus" }, { id: "claude-sonnet" }];
+    const filter: VisibilityFilter = {
+      disabledProviders: [],
+      disabledModelIds: [{ provider: "openrouter", model: "claude-opus" }],
+    };
+    expect(filterVisibleModels("openrouter", models, filter)).toEqual([{ id: "claude-sonnet" }]);
+  });
 
+  it("does not affect disabled models from other providers", () => {
+    const models = [{ id: "claude-opus" }];
+    const filter: VisibilityFilter = {
+      disabledProviders: [],
+      disabledModelIds: [{ provider: "anthropic", model: "claude-opus" }],
+    };
+    expect(filterVisibleModels("openrouter", models, filter)).toEqual([{ id: "claude-opus" }]);
+  });
+
+  it("returns empty when provider is disabled even for empty model list", () => {
+    const filter: VisibilityFilter = {
+      disabledProviders: ["openrouter"],
+      disabledModelIds: [],
+    };
+    expect(filterVisibleModels("openrouter", [], filter)).toEqual([]);
+  });
+});
+
+describe("applyVisibilityRules", () => {
+  const sampleModels: RegistryModel[] = [
+    { provider: "openrouter", id: "anthropic/claude-opus-4.1" },
+    { provider: "openrouter", id: "anthropic/claude-sonnet-4.5" },
+    { provider: "anthropic", id: "claude-opus-4-1" },
+  ];
+
+  function makeRegistry(models = sampleModels): { getAvailable(): Promise<RegistryModel[]> } {
+    return { async getAvailable() { return models; } };
+  }
+
+  function makePi(): { registrations: Array<{ provider: string; models: RegistryModel[] }>; registerProvider(p: string, c: { models?: RegistryModel[] }): void } {
     const registrations: Array<{ provider: string; models: RegistryModel[] }> = [];
-    const pi = {
+    return {
+      registrations,
       registerProvider(provider: string, config: { models?: RegistryModel[] }) {
         registrations.push({ provider, models: config.models ?? [] });
       },
     };
-    const modelRegistry = {
-      async getAvailable() {
-        return [
-          { provider: "openrouter", id: "anthropic/claude-opus-4.1" },
-          { provider: "openrouter", id: "anthropic/claude-sonnet-4.5" },
-          { provider: "anthropic", id: "claude-opus-4-1" },
-        ];
-      },
-    };
+  }
 
-    await applyVisibilityRules(pi, modelRegistry);
+  it("registers all providers with all models when nothing is disabled", async () => {
+    clearVisibilityBaseline();
+    const pi = makePi();
+    const getFilter = () => noFilter;
 
-    expect(registrations).toEqual([
-      {
-        provider: "openrouter",
-        models: [{ provider: "openrouter", id: "anthropic/claude-sonnet-4.5" }],
-      },
-      {
-        provider: "anthropic",
-        models: [{ provider: "anthropic", id: "claude-opus-4-1" }],
-      },
+    await applyVisibilityRules(pi, makeRegistry(), getFilter);
+
+    expect(pi.registrations).toEqual([
+      { provider: "openrouter", models: sampleModels.filter((m) => m.provider === "openrouter") },
+      { provider: "anthropic", models: sampleModels.filter((m) => m.provider === "anthropic") },
     ]);
   });
 
-  it("overrides disabled providers with an empty model list", async () => {
-    disableProvider("openrouter");
+  it("registers only visible models when some are disabled", async () => {
+    clearVisibilityBaseline();
+    const pi = makePi();
+    const getFilter = (): VisibilityFilter => ({
+      disabledProviders: [],
+      disabledModelIds: [{ provider: "openrouter", model: "anthropic/claude-opus-4.1" }],
+    });
 
-    const registrations: Array<{ provider: string; models: RegistryModel[] }> = [];
-    const pi = {
-      registerProvider(provider: string, config: { models?: RegistryModel[] }) {
-        registrations.push({ provider, models: config.models ?? [] });
-      },
-    };
-    const modelRegistry = {
-      async getAvailable() {
-        return [
-          { provider: "openrouter", id: "anthropic/claude-opus-4.1" },
-          { provider: "anthropic", id: "claude-opus-4-1" },
-        ];
-      },
-    };
+    await applyVisibilityRules(pi, makeRegistry(), getFilter);
 
-    await applyVisibilityRules(pi, modelRegistry);
+    expect(pi.registrations).toEqual([
+      { provider: "openrouter", models: [{ provider: "openrouter", id: "anthropic/claude-sonnet-4.5" }] },
+      { provider: "anthropic", models: [{ provider: "anthropic", id: "claude-opus-4-1" }] },
+    ]);
+  });
 
-    expect(registrations).toEqual([
+  it("registers disabled providers with empty model list", async () => {
+    clearVisibilityBaseline();
+    const pi = makePi();
+    const getFilter = (): VisibilityFilter => ({
+      disabledProviders: ["openrouter"],
+      disabledModelIds: [],
+    });
+
+    await applyVisibilityRules(pi, makeRegistry(), getFilter);
+
+    expect(pi.registrations).toEqual([
       { provider: "openrouter", models: [] },
       { provider: "anthropic", models: [{ provider: "anthropic", id: "claude-opus-4-1" }] },
     ]);
   });
 
   it("does not throw when a provider cannot be overridden", async () => {
-    disableProvider("github-copilot");
+    clearVisibilityBaseline();
     const pi = {
       registerProvider(provider: string, _config: { models?: RegistryModel[] }) {
         if (provider === "github-copilot") {
@@ -87,46 +129,44 @@ describe("visibility", () => {
         }
       },
     };
-    const modelRegistry = {
-      async getAvailable() {
-        return [{ provider: "github-copilot", id: "claude-sonnet" }];
-      },
-    };
+    const getFilter = (): VisibilityFilter => ({
+      disabledProviders: ["github-copilot"],
+      disabledModelIds: [],
+    });
 
-    await expect(applyVisibilityRules(pi, modelRegistry)).resolves.toBeUndefined();
+    await expect(
+      applyVisibilityRules(pi, makeRegistry([{ provider: "github-copilot", id: "claude-sonnet" }]), getFilter),
+    ).resolves.toBeUndefined();
   });
 
-  it("restores a provider from cached baseline models after enabling", async () => {
-    disableProvider("openrouter");
+  it("restores a provider from cached baseline after re-enabling", async () => {
+    clearVisibilityBaseline();
+    const pi = makePi();
 
-    const registrations: Array<{ provider: string; models: RegistryModel[] }> = [];
-    const pi = {
-      registerProvider(provider: string, config: { models?: RegistryModel[] }) {
-        registrations.push({ provider, models: config.models ?? [] });
-      },
-    };
-    const baselineRegistry = {
-      async getAvailable() {
-        return [
-          { provider: "openrouter", id: "anthropic/claude-opus-4.1" },
-          { provider: "anthropic", id: "claude-opus-4-1" },
-        ];
-      },
-    };
+    // First pass: disable openrouter, capture baseline
+    const disabledFilter = (): VisibilityFilter => ({
+      disabledProviders: ["openrouter"],
+      disabledModelIds: [],
+    });
+    await applyVisibilityRules(pi, makeRegistry(), disabledFilter);
 
-    await applyVisibilityRules(pi, baselineRegistry);
-    enableProvider("openrouter");
+    // Second pass: enable openrouter with models that don't include it
+    // Baseline should restore from the first pass
+    const enabledFilter = (): VisibilityFilter => ({
+      disabledProviders: [],
+      disabledModelIds: [],
+    });
+    const filteredRegistry = makeRegistry([
+      { provider: "anthropic", id: "claude-opus-4-1" },
+    ]);
+    await applyVisibilityRules(pi, filteredRegistry, enabledFilter);
 
-    const filteredRegistry = {
-      async getAvailable() {
-        return [{ provider: "anthropic", id: "claude-opus-4-1" }];
-      },
-    };
-    await applyVisibilityRules(pi, filteredRegistry);
-
-    expect(registrations.at(-1)).toEqual({
+    expect(pi.registrations.at(-1)).toEqual({
       provider: "openrouter",
-      models: [{ provider: "openrouter", id: "anthropic/claude-opus-4.1" }],
+      models: [
+        { provider: "openrouter", id: "anthropic/claude-opus-4.1" },
+        { provider: "openrouter", id: "anthropic/claude-sonnet-4.5" },
+      ],
     });
   });
 });

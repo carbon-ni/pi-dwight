@@ -46,6 +46,7 @@ import {
   type ModelRegistryReader,
   type ProviderRegistrar,
   type RegistryModel,
+  type VisibilityFilter,
 } from "./src/domain/visibility.js";
 import {
   disableModelWithPicker,
@@ -120,8 +121,16 @@ async function getAvailableModels(ctx: { modelRegistry: ModelRegistryReader }): 
   return await ctx.modelRegistry.getAvailable();
 }
 
+function getVisibilityFilter(): VisibilityFilter {
+  const config = readConfig();
+  return {
+    disabledProviders: config.disabledProviders,
+    disabledModelIds: config.disabledModels,
+  };
+}
+
 async function refreshVisibility(pi: ExtensionAPI, ctx: { modelRegistry: ModelRegistryReader }): Promise<void> {
-  await applyVisibilityRules(pi as unknown as ProviderRegistrar, ctx.modelRegistry);
+  await applyVisibilityRules(pi as unknown as ProviderRegistrar, ctx.modelRegistry, getVisibilityFilter);
 }
 
 type QuotaStatusContext = {
@@ -277,6 +286,7 @@ export default function (pi: ExtensionAPI) {
     await applyVisibilityRules(
       pi as unknown as ProviderRegistrar,
       ctx.modelRegistry as unknown as ModelRegistryReader,
+      getVisibilityFilter,
     );
 
     if (hasExplicitModelArgument(process.argv)) return;

@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { filterVisibleModels as filterVisibleModelsDomain } from "../domain/visibility.js";
 
 export interface Account {
   /** Unique account identifier (used in provider name: {provider}-{id}) */
@@ -198,13 +199,8 @@ export function enableModel(provider: string, model: string): boolean {
 
 export function filterVisibleModels<T extends ModelLike>(provider: string, models: T[]): T[] {
   const config = readConfig();
-  if (config.disabledProviders.includes(provider)) return [];
-
-  const disabledModels = new Set(
-    config.disabledModels
-      .filter((entry) => entry.provider === provider)
-      .map((entry) => entry.model),
-  );
-
-  return models.filter((model) => !disabledModels.has(model.id));
+  return filterVisibleModelsDomain(provider, models, {
+    disabledProviders: config.disabledProviders,
+    disabledModelIds: config.disabledModels,
+  });
 }

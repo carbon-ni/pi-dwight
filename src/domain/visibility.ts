@@ -1,5 +1,3 @@
-import { filterVisibleModels } from "../infra/config.js";
-
 export interface RegistryModel {
   provider: string;
   id: string;
@@ -13,6 +11,16 @@ export interface ProviderRegistrar {
 export interface ModelRegistryReader {
   getAvailable(): RegistryModel[] | Promise<RegistryModel[]>;
   __multiAccountVisibilityOriginalGetAvailable?: () => RegistryModel[] | Promise<RegistryModel[]>;
+}
+
+export interface DisabledModel {
+  provider: string;
+  model: string;
+}
+
+export interface VisibilityFilter {
+  disabledProviders: string[];
+  disabledModelIds: DisabledModel[];
 }
 
 const baselineModels = new Map<string, RegistryModel[]>();
@@ -45,15 +53,37 @@ export function clearVisibilityBaseline(): void {
   baselineModels.clear();
 }
 
-function filterAvailableModels(models: RegistryModel[]): RegistryModel[] {
-  const providers = groupByProvider(models);
-  rememberBaseline(providers);
+export function filterVisibleModels<T extends { id: string }>(
+  provider: string,
+  models: T[],
+  filter: VisibilityFilter,
+): T[] {
+  if (filter.disabledProviders.includes(provider)) return [];
 
-  return models.filter((model) => filterVisibleModels(model.provider, [model]).length > 0);
+  const disabledIds = new Set(
+    filter.disabledModelIds
+      .filter((entry) => entry.provider === provider)
+      .map((entry) => entry.model),
+  );
+
+  return models.filter((model) => !disabledIds.has(model.id));
 }
 
-export function installVisibilityFilter(modelRegistry: ModelRegistryReader): void {
+export function installVisibilityFilter(
+  modelRegistry: ModelRegistryReader,
+  getFilter: () => VisibilityFilter,
+): void {
   if (modelRegistry.__multiAccountVisibilityOriginalGetAvailable) return;
+
+  function filterAvailableModels(models: RegistryModel[]): RegistryModel[] {
+    const currentFilter = getFilter();
+    const providers = groupByProvider(models);
+    rememberBaseline(providers);
+
+    return models.filter(
+      (model) => filterVisibleModels(model.provider, [model], currentFilter).length > 0,
+    );
+  }
 
   const originalGetAvailable = modelRegistry.getAvailable.bind(modelRegistry);
   modelRegistry.__multiAccountVisibilityOriginalGetAvailable = originalGetAvailable;
@@ -69,17 +99,22 @@ export function installVisibilityFilter(modelRegistry: ModelRegistryReader): voi
 export async function applyVisibilityRules(
   pi: ProviderRegistrar,
   modelRegistry: ModelRegistryReader,
+  getFilter: () => VisibilityFilter,
 ): Promise<void> {
-  installVisibilityFilter(modelRegistry);
-  const models = await modelRegistry.__multiAccountVisibilityOriginalGetAvailable?.() ?? await modelRegistry.getAvailable();
+  installVisibilityFilter(modelRegistry, getFilter);
+  const models =
+    (await modelRegistry.__multiAccountVisibilityOriginalGetAvailable?.()) ??
+    (await modelRegistry.getAvailable());
   const providers = groupByProvider(models);
   rememberBaseline(providers);
+
+  const currentFilter = getFilter();
 
   for (const provider of allKnownProviders(providers)) {
     const providerModels = baselineModels.get(provider) ?? providers.get(provider) ?? [];
     try {
       pi.registerProvider(provider, {
-        models: filterVisibleModels(provider, providerModels),
+        models: filterVisibleModels(provider, providerModels, currentFilter),
       });
     } catch {
       // Some built-in providers require provider metadata (e.g. baseUrl) when
