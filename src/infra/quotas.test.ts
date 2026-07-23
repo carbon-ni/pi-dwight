@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   fetchMultiAccountQuota,
+  fetchMultiAccountQuotas,
   fetchOpenAiCodexQuota,
   fetchZaiQuota,
   parseOpenAiCodexQuota,
@@ -126,6 +127,26 @@ describe("fetchOpenAiCodexQuota", () => {
         fetcher,
       }),
     ).resolves.toEqual({ success: false, error: "Unauthorized" });
+  });
+});
+
+describe("fetchMultiAccountQuotas", () => {
+  it("fetches quota data for every configured account", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rate_limit: {} }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { limits: [] } }), { status: 200 }));
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("access-token") };
+
+    await expect(fetchMultiAccountQuotas(authStorage, [
+      { provider: "openai", id: "personal", key: "", accountId: "account-id" },
+      { provider: "zai", id: "work", key: "" },
+    ], fetcher)).resolves.toEqual([
+      { account: { provider: "openai", id: "personal", key: "", accountId: "account-id" }, result: { success: true, windows: [] } },
+      { account: { provider: "zai", id: "work", key: "" }, result: { success: true, windows: [] } },
+    ]);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("openai-personal");
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("zai-work");
   });
 });
 

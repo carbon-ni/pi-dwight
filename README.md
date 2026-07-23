@@ -17,6 +17,7 @@ No config needed — just start using the commands. State is persisted to `~/.pi
 /multi-account list                      List all accounts
 /multi-account remove <provider> <id>    Remove an account
 /multi-account show <provider> <id>      Show account details
+/multi-account quotas                    Open a quota overview popup
 ```
 
 **Quick start:**
@@ -27,6 +28,10 @@ No config needed — just start using the commands. State is persisted to `~/.pi
 ```
 
 Provider names follow the pattern `{provider}-{id}` (e.g., `openai-personal`, `openai-work`).
+
+### Quota overview
+
+Run `/multi-account quotas` or press `Ctrl+Shift+U` to open a compact popup immediately while it fetches every configured account concurrently. Press `Ctrl+Shift+U`, `Esc`, or `Enter` to close it. Failed or unsupported quota lookups remain visible with the returned error.
 
 ### Aliases
 
@@ -107,10 +112,12 @@ src/
     visibility.ts           Visibility filtering engine
   lib/
     visibility-format.ts    Display formatting
+    quota-overview.ts       Quota overview formatting
   infra/
     config.ts               Config persistence (accounts, visibility, aliases)
     alias.ts                Alias CRUD
     visibility-ui.ts        Interactive picker UI
+    quotas.ts               Provider quota fetching
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed module boundaries and data flow.

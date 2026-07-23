@@ -20,7 +20,10 @@
  * Provider names: {provider}-{id} (e.g., openai-personal, openai-work)
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { DynamicBorder, type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { Container, Key, matchesKey, Text } from "@mariozechner/pi-tui";
+
+const QUOTA_OVERVIEW_SHORTCUTS = [Key.ctrlShift("u"), Key.ctrl("u")] as const;
 import {
   type OAuthCredentials,
   type OAuthLoginCallbacks,
@@ -59,9 +62,10 @@ import { hasExplicitModelArgument } from "./src/infra/cli.js";
 import { applyProjectDefaultModel } from "./src/infra/project-default-model.js";
 import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
-import { fetchMultiAccountQuota } from "./src/infra/quotas.js";
+import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
 import { keyDisplayStatus } from "./src/lib/resolve-key.js";
+import { buildQuotaOverview } from "./src/lib/quota-overview.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -312,6 +316,92 @@ export default function (pi: ExtensionAPI) {
     await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
   });
 
+  const showQuotaOverview = async (ctx: ExtensionContext) => {
+    const accounts = listAccounts();
+    if (accounts.length === 0) {
+      ctx.ui.notify("No accounts configured.", "info");
+      return;
+    }
+
+    const credentials = {
+      getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider),
+    };
+
+    await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+      const panel = new Container();
+      let closed = false;
+
+      const addFrame = () => {
+        panel.addChild(new DynamicBorder((text: string) => theme.fg("accent", text)));
+        panel.addChild(new Text(theme.fg("accent", theme.bold("Account quotas")), 1, 0));
+      };
+      const addCloseHint = () => {
+        panel.addChild(new Text(
+          theme.fg("dim", "Ctrl+Shift+U, Esc, or Enter to close"),
+          1,
+          0,
+        ));
+        panel.addChild(new DynamicBorder((text: string) => theme.fg("accent", text)));
+      };
+      const showLoading = () => {
+        addFrame();
+        panel.addChild(new Text(theme.fg("dim", "Loading account quotas…"), 1, 0));
+        addCloseHint();
+      };
+      const showOverview = (overview: ReturnType<typeof buildQuotaOverview>) => {
+        panel.clear();
+        addFrame();
+        for (const item of overview) {
+          panel.addChild(new Text(
+            `${theme.bold(item.account)}  ${theme.fg(item.severity, item.status)}`,
+            1,
+            0,
+          ));
+        }
+        addCloseHint();
+      };
+
+      showLoading();
+      void fetchMultiAccountQuotas(credentials, accounts)
+        .then((results) => {
+          if (closed) return;
+          showOverview(buildQuotaOverview(results));
+          tui.requestRender();
+        })
+        .catch((error: unknown) => {
+          if (closed) return;
+          showOverview([{ account: "Quota loading failed", status: error instanceof Error ? error.message : "Unknown error", severity: "error" }]);
+          tui.requestRender();
+        });
+
+      return {
+        render: (width: number) => panel.render(width),
+        invalidate: () => panel.invalidate(),
+        handleInput: (data: string) => {
+          if (
+            QUOTA_OVERVIEW_SHORTCUTS.some((shortcut) => matchesKey(data, shortcut))
+            || matchesKey(data, Key.escape)
+            || matchesKey(data, Key.enter)
+          ) {
+            closed = true;
+            done();
+          }
+          tui.requestRender();
+        },
+      };
+    }, {
+      overlay: true,
+      overlayOptions: { anchor: "top-right", width: "45%", minWidth: 42, maxHeight: "70%", margin: 1 },
+    });
+  };
+
+  for (const shortcut of QUOTA_OVERVIEW_SHORTCUTS) {
+    pi.registerShortcut(shortcut, {
+      description: "Open or close the multi-account quota overview",
+      handler: showQuotaOverview,
+    });
+  }
+
   // ── /multi-account <subcommand> ──
   pi.registerCommand("multi-account", {
     description: "Manage multi-account providers (OpenAI subscriptions)",
@@ -321,6 +411,7 @@ export default function (pi: ExtensionAPI) {
         "list",
         "remove",
         "show",
+        "quotas",
         "disable-provider",
         "enable-provider",
         "disable-model",
@@ -496,6 +587,11 @@ export default function (pi: ExtensionAPI) {
         case "visibility": {
           ctx.ui.notify(formatVisibilityRules(), "info");
           break;
+        }
+
+        case "quotas": {
+          await showQuotaOverview(ctx);
+          return;
         }
 
         case "show": {

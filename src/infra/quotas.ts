@@ -79,6 +79,17 @@ function readOpenAiAccountId(provider: string): string | undefined {
   }
 }
 
+export async function fetchMultiAccountQuotas(
+  authStorage: AccountCredentialSource,
+  accounts: Account[],
+  fetcher?: Fetcher,
+): Promise<Array<{ account: Account; result: OpenAiCodexQuotaResult }>> {
+  return Promise.all(accounts.map(async (account) => ({
+    account,
+    result: await fetchMultiAccountQuota(authStorage, account, fetcher),
+  })));
+}
+
 export async function fetchMultiAccountQuota(
   authStorage: AccountCredentialSource,
   account: Account,
