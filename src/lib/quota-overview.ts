@@ -31,11 +31,17 @@ function severity(usedPercent: number): QuotaOverviewItem["severity"] {
   return "success";
 }
 
+function compareAccounts(left: QuotaOverviewInput, right: QuotaOverviewInput): number {
+  const providerOrder = left.account.provider.localeCompare(right.account.provider);
+  if (providerOrder !== 0) return providerOrder;
+  return left.account.id.localeCompare(right.account.id);
+}
+
 export function buildQuotaOverview(
   entries: QuotaOverviewInput[],
   now = new Date(),
 ): QuotaOverviewItem[] {
-  return entries.map(({ account, result }) => {
+  return [...entries].sort(compareAccounts).map(({ account, result }) => {
     const name = `${account.provider}-${account.id}`;
     if (!result.success) {
       return { account: name, status: result.error, severity: "error" };
