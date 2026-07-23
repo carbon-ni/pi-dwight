@@ -64,6 +64,7 @@ import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
+import { highestUsageSeverity } from "./src/domain/usage-views.js";
 import { keyDisplayStatus } from "./src/lib/resolve-key.js";
 import { buildQuotaOverview } from "./src/lib/quota-overview.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
@@ -164,10 +165,7 @@ async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
     return;
   }
 
-  const highestUsage = Math.max(
-    ...result.items.map((item) => (item.kind === "quota" ? item.usedPercent : item.amount <= 0 ? 100 : 0)),
-  );
-  const color = highestUsage >= 90 ? "error" : highestUsage >= 70 ? "warning" : "success";
+  const color = highestUsageSeverity(result.items);
   ctx.ui.setWidget("quotas", [ctx.ui.theme.fg(color, `◷ ${status}`)]);
 }
 
