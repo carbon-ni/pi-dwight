@@ -4,6 +4,7 @@ import {
   fetchMultiAccountQuotas,
   parseDeepSeekQuota,
   parseOpenAiCodexQuota,
+  parseOpenRouterQuota,
   parseZaiQuota,
 } from "./quotas.js";
 
@@ -68,6 +69,18 @@ describe("parseDeepSeekQuota", () => {
 
   it("returns no items for an unrecognised response", () => {
     expect(parseDeepSeekQuota({})).toEqual([]);
+  });
+});
+
+describe("parseOpenRouterQuota", () => {
+  it("calculates remaining credits from total and usage", () => {
+    expect(parseOpenRouterQuota({ data: { total_credits: 100.5, total_usage: 25.75 } })).toEqual([
+      { kind: "balance", label: "Credits $74.75", amount: 74.75, currency: "USD" },
+    ]);
+  });
+
+  it("returns no items for an unrecognised response", () => {
+    expect(parseOpenRouterQuota({})).toEqual([]);
   });
 });
 
@@ -158,6 +171,32 @@ describe("fetchMultiAccountQuota", () => {
       "https://api.deepseek.com/user/balance",
       expect.any(Object),
     );
+  });
+
+  it("uses an OpenRouter multi-account provider credential", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { total_credits: 100.5, total_usage: 25.75 } }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("or-key") };
+
+    const result = await fetchMultiAccountQuota(authStorage, { provider: "openrouter", id: "work", key: "" }, fetcher);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("openrouter-work");
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/credits",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer or-key" }),
+      }),
+    );
+    expect(result).toEqual({
+      success: true,
+      items: [{
+        kind: "balance",
+        label: "Credits $74.75",
+        amount: 74.75,
+        currency: "USD",
+      }],
+    });
   });
 
   it("returns a readable error for an unsupported provider", async () => {

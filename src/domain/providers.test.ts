@@ -106,12 +106,43 @@ describe("providers", () => {
     });
   });
 
+  describe("openrouter", () => {
+    it("uses openai-completions API with OpenRouter base URL", () => {
+      const or = PROVIDER_TYPES.openrouter;
+      expect(or).toBeDefined();
+      expect(or.name).toBe("OpenRouter");
+      expect(or.baseUrl).toBe("https://openrouter.ai/api/v1");
+      expect(or.api).toBe("openai-completions");
+      expect(or.auth).toBe("apikey");
+      expect(or.models.length).toBeGreaterThan(0);
+    });
+
+    it("includes auto-router and popular gateway models", () => {
+      const ids = PROVIDER_TYPES.openrouter.models.map((m) => m.id);
+      expect(ids).toContain("openrouter/auto");
+      expect(ids).toContain("openai/gpt-4o");
+    });
+
+    it("all models have required fields", () => {
+      for (const model of PROVIDER_TYPES.openrouter.models) {
+        expect(model.id).toBeTruthy();
+        expect(model.name).toBeTruthy();
+        expect(typeof model.reasoning).toBe("boolean");
+        expect(model.input.length).toBeGreaterThan(0);
+        expect(model.cost).toBeDefined();
+        expect(model.contextWindow).toBeGreaterThan(0);
+        expect(model.maxTokens).toBeGreaterThan(0);
+      }
+    });
+  });
+
   describe("getProviderTypeNames", () => {
     it("returns list of known provider names", () => {
       const names = getProviderTypeNames();
       expect(names).toContain("openai");
       expect(names).toContain("zai");
       expect(names).toContain("deepseek");
+      expect(names).toContain("openrouter");
     });
   });
 });

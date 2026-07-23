@@ -35,6 +35,63 @@ export interface ProviderTypeDef {
   quota?: ProviderQuotaPlugin;
 }
 
+const OPENROUTER_MODELS: ModelDefinition[] = [
+  {
+    id: "openrouter/auto",
+    name: "Auto Router",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 4_096,
+  },
+  {
+    id: "openai/gpt-4o",
+    name: "GPT-4o",
+    reasoning: false,
+    input: ["text", "image"],
+    cost: { input: 2.5, output: 10, cacheRead: 1.25, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 16_384,
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    reasoning: false,
+    input: ["text", "image"],
+    cost: { input: 0.15, output: 0.6, cacheRead: 0.075, cacheWrite: 0 },
+    contextWindow: 1_000_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "anthropic/claude-sonnet-4-20250514",
+    name: "Claude Sonnet 4",
+    reasoning: true,
+    input: ["text"],
+    cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+    contextWindow: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "deepseek/deepseek-chat",
+    name: "DeepSeek Chat",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.27, output: 1.1, cacheRead: 0.07, cacheWrite: 0 },
+    contextWindow: 64_000,
+    maxTokens: 8_000,
+  },
+  {
+    id: "meta-llama/llama-4-maverick",
+    name: "Llama 4 Maverick",
+    reasoning: false,
+    input: ["text", "image"],
+    cost: { input: 0.2, output: 0.2, cacheRead: 0.1, cacheWrite: 0 },
+    contextWindow: 1_000_000,
+    maxTokens: 8_192,
+  },
+];
+
 const DEEPSEEK_MODELS: ModelDefinition[] = [
   {
     id: "deepseek-chat",
@@ -126,6 +183,13 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     api: "openai-codex-responses",
     models: CODEX_MODELS,
     auth: "oauth",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    api: "openai-completions",
+    auth: "apikey",
+    models: OPENROUTER_MODELS,
   },
   deepseek: {
     name: "DeepSeek",
