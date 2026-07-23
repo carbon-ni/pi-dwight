@@ -69,6 +69,25 @@ describe("providers", () => {
     });
   });
 
+  describe("deepseek", () => {
+    it("uses openai-completions API with standard base url", () => {
+      const deepseek = PROVIDER_TYPES.deepseek;
+      expect(deepseek).toBeDefined();
+      expect(deepseek.name).toBe("DeepSeek");
+      expect(deepseek.baseUrl).toBe("https://api.deepseek.com");
+      expect(deepseek.api).toBe("openai-completions");
+      expect(deepseek.auth).toBe("apikey");
+      expect(deepseek.models.length).toBeGreaterThan(0);
+    });
+
+    it("includes chat and reasoner models", () => {
+      expect(PROVIDER_TYPES.deepseek.models.map((model) => model.id)).toEqual([
+        "deepseek-chat",
+        "deepseek-reasoner",
+      ]);
+    });
+  });
+
   describe("getProviderType", () => {
     it("returns definition for known provider", () => {
       expect(getProviderType("openai")).toBe(PROVIDER_TYPES.openai);
@@ -76,6 +95,10 @@ describe("providers", () => {
 
     it("returns definition for zai", () => {
       expect(getProviderType("zai")).toBe(PROVIDER_TYPES.zai);
+    });
+
+    it("returns definition for deepseek", () => {
+      expect(getProviderType("deepseek")).toBe(PROVIDER_TYPES.deepseek);
     });
 
     it("returns undefined for unknown provider", () => {
@@ -88,6 +111,7 @@ describe("providers", () => {
       const names = getProviderTypeNames();
       expect(names).toContain("openai");
       expect(names).toContain("zai");
+      expect(names).toContain("deepseek");
     });
   });
 });

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchMultiAccountQuota,
   fetchMultiAccountQuotas,
+  fetchDeepSeekQuota,
   fetchOpenAiCodexQuota,
   fetchZaiQuota,
+  parseDeepSeekQuota,
   parseOpenAiCodexQuota,
   parseZaiQuota,
 } from "./quotas.js";
@@ -41,6 +43,34 @@ describe("parseZaiQuota", () => {
 
   it("ignores unknown or invalid limits", () => {
     expect(parseZaiQuota({ data: { limits: [{ type: "TIME_LIMIT", usage: 0 }] } })).toEqual([]);
+  });
+});
+
+describe("parseDeepSeekQuota", () => {
+  it("maps a positive account balance into an available quota window", () => {
+    expect(parseDeepSeekQuota({
+      is_available: true,
+      balance_infos: [
+        { currency: "USD", total_balance: "10.50", granted_balance: "0.00", topped_up_balance: "10.50" },
+      ],
+    })).toEqual([
+      { label: "Balance $10.50", usedPercent: 0, resetsAt: new Date(0) },
+    ]);
+  });
+
+  it("maps unavailable or empty balances into an exhausted quota window", () => {
+    expect(parseDeepSeekQuota({
+      is_available: false,
+      balance_infos: [
+        { currency: "CNY", total_balance: "0.00", granted_balance: "0.00", topped_up_balance: "0.00" },
+      ],
+    })).toEqual([
+      { label: "Balance ¥0.00", usedPercent: 100, resetsAt: new Date(0) },
+    ]);
+  });
+
+  it("returns no windows for an unrecognised response", () => {
+    expect(parseDeepSeekQuota({})).toEqual([]);
   });
 });
 
@@ -100,6 +130,17 @@ describe("fetchOpenAiCodexQuota", () => {
     );
   });
 
+  it("uses the canonical provider credential for default accounts", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ is_available: true, balance_infos: [] }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("deepseek-key") };
+
+    await fetchMultiAccountQuota(authStorage, { provider: "deepseek", id: "default", key: "" }, fetcher);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("deepseek");
+  });
+
   it("uses a Z.ai multi-account provider credential", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ data: { limits: [] } }), { status: 200 }),
@@ -111,6 +152,21 @@ describe("fetchOpenAiCodexQuota", () => {
     expect(authStorage.getApiKey).toHaveBeenCalledWith("zai-work");
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.z.ai/api/monitor/usage/quota/limit",
+      expect.any(Object),
+    );
+  });
+
+  it("uses a DeepSeek multi-account provider credential", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ is_available: true, balance_infos: [] }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("deepseek-key") };
+
+    await fetchMultiAccountQuota(authStorage, { provider: "deepseek", id: "work", key: "" }, fetcher);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("deepseek-work");
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.deepseek.com/user/balance",
       expect.any(Object),
     );
   });
@@ -147,6 +203,33 @@ describe("fetchMultiAccountQuotas", () => {
 
     expect(authStorage.getApiKey).toHaveBeenCalledWith("openai-personal");
     expect(authStorage.getApiKey).toHaveBeenCalledWith("zai-work");
+  });
+});
+
+describe("fetchDeepSeekQuota", () => {
+  it("requests the DeepSeek balance endpoint with the API key", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ is_available: true, balance_infos: [
+        { currency: "USD", total_balance: "1.25" },
+      ] }), { status: 200 }),
+    );
+
+    await expect(fetchDeepSeekQuota({ apiKey: "deepseek-key", fetcher })).resolves.toEqual({
+      success: true,
+      windows: [{ label: "Balance $1.25", usedPercent: 0, resetsAt: new Date(0) }],
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.deepseek.com/user/balance",
+      expect.objectContaining({ headers: { Authorization: "Bearer deepseek-key", Accept: "application/json" } }),
+    );
+  });
+
+  it("does not make a request without an API key", async () => {
+    const fetcher = vi.fn();
+
+    await expect(fetchDeepSeekQuota({ fetcher })).resolves.toEqual({ success: false, error: "No DeepSeek API key found" });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
 

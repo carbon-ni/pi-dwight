@@ -23,7 +23,7 @@
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Container, Key, matchesKey, Text } from "@mariozechner/pi-tui";
 
-const QUOTA_OVERVIEW_SHORTCUTS = [Key.ctrlShift("u"), Key.ctrl("u")] as const;
+const QUOTA_OVERVIEW_SHORTCUTS = [Key.f6] as const;
 import {
   type OAuthCredentials,
   type OAuthLoginCallbacks,
@@ -66,6 +66,8 @@ import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quo
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
 import { keyDisplayStatus } from "./src/lib/resolve-key.js";
 import { buildQuotaOverview } from "./src/lib/quota-overview.js";
+import { providerAuthConfig } from "./src/infra/provider-auth.js";
+import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -225,25 +227,15 @@ function registerAccountProvider(
   const models = filterVisibleModels(name, typeDef.models);
   if (models.length === 0) return;
 
-  if (typeDef.auth === "apikey") {
-    const config = readConfig();
-    const account = config.accounts.find((a) => a.id === accountId && a.provider === providerType);
-    pi.registerProvider(name, {
-      name: `${typeDef.name} — ${accountId}`,
-      baseUrl: typeDef.baseUrl,
-      api: typeDef.api,
-      apiKey: account?.key || undefined,
-      models,
-    });
-    return;
-  }
+  const account = readConfig().accounts.find((a) => a.id === accountId && a.provider === providerType);
+  if (!account) return;
 
   pi.registerProvider(name, {
     name: `${typeDef.name} — ${accountId}`,
     baseUrl: typeDef.baseUrl,
     api: typeDef.api,
     models,
-    oauth: createOauthProvider(accountId),
+    ...providerAuthConfig(typeDef, account, createOauthProvider),
   });
 }
 
@@ -270,7 +262,7 @@ function registerAliasProvider(pi: ExtensionAPI, alias: { name: string; provider
     baseUrl: typeDef.baseUrl,
     api: typeDef.api,
     models: [modelDef],
-    oauth: createOauthProvider(account.id),
+    ...providerAuthConfig(typeDef, account, createOauthProvider),
   });
 }
 
@@ -317,15 +309,17 @@ export default function (pi: ExtensionAPI) {
   });
 
   const showQuotaOverview = async (ctx: ExtensionContext) => {
-    const accounts = listAccounts();
-    if (accounts.length === 0) {
-      ctx.ui.notify("No accounts configured.", "info");
-      return;
-    }
-
     const credentials = {
       getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider),
     };
+    const accounts = [
+      ...listAccounts(),
+      ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
+    ];
+    if (accounts.length === 0) {
+      ctx.ui.notify("No quota-capable accounts configured.", "info");
+      return;
+    }
 
     await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
       const panel = new Container();
@@ -337,7 +331,7 @@ export default function (pi: ExtensionAPI) {
       };
       const addCloseHint = () => {
         panel.addChild(new Text(
-          theme.fg("dim", "Ctrl+Shift+U, Esc, or Enter to close"),
+          theme.fg("dim", "F6, Esc, or Enter to close"),
           1,
           0,
         ));

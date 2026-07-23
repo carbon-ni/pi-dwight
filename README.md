@@ -31,7 +31,7 @@ Provider names follow the pattern `{provider}-{id}` (e.g., `openai-personal`, `o
 
 ### Quota overview
 
-Run `/multi-account quotas` or press `Ctrl+Shift+U` to open a compact popup immediately while it fetches every configured account concurrently. Press `Ctrl+Shift+U`, `Esc`, or `Enter` to close it. Failed or unsupported quota lookups remain visible with the returned error.
+Run `/multi-account quotas` or press `F6` to open a compact popup immediately while it fetches every configured account concurrently. Press `F6`, `Esc`, or `Enter` to close it. Failed or unsupported quota lookups remain visible with the returned error.
 
 ### Aliases
 

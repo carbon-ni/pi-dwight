@@ -90,12 +90,17 @@ export async function fetchMultiAccountQuotas(
   })));
 }
 
+function credentialProviderName(account: Account): string {
+  if (account.id === "default") return account.provider;
+  return `${account.provider}-${account.id}`;
+}
+
 export async function fetchMultiAccountQuota(
   authStorage: AccountCredentialSource,
   account: Account,
   fetcher?: Fetcher,
 ): Promise<OpenAiCodexQuotaResult> {
-  const apiKey = await authStorage.getApiKey(`${account.provider}-${account.id}`);
+  const apiKey = await authStorage.getApiKey(credentialProviderName(account));
   if (account.provider === "openai") {
     return fetchOpenAiCodexQuota({
       accessToken: apiKey,
@@ -104,6 +109,7 @@ export async function fetchMultiAccountQuota(
     });
   }
   if (account.provider === "zai") return fetchZaiQuota({ apiKey, fetcher });
+  if (account.provider === "deepseek") return fetchDeepSeekQuota({ apiKey, fetcher });
 
   return { success: false, error: `Quota fetching is not supported for ${account.provider}` };
 }
@@ -149,6 +155,68 @@ interface ZaiQuotaOptions {
   apiKey?: string;
   fetcher?: Fetcher;
   signal?: AbortSignal;
+}
+
+interface DeepSeekQuotaOptions {
+  apiKey?: string;
+  fetcher?: Fetcher;
+  signal?: AbortSignal;
+}
+
+function currencySymbol(currency: string): string {
+  if (currency === "USD") return "$";
+  if (currency === "CNY") return "¥";
+  return `${currency} `;
+}
+
+function deepSeekBalanceLabel(currency: string, balance: number): string {
+  return `Balance ${currencySymbol(currency)}${balance.toFixed(2)}`;
+}
+
+export function parseDeepSeekQuota(data: unknown): QuotaWindow[] {
+  if (!data || typeof data !== "object") return [];
+
+  const response = data as { is_available?: unknown; balance_infos?: unknown };
+  if (!Array.isArray(response.balance_infos)) return [];
+
+  const windows: QuotaWindow[] = [];
+  for (const balanceInfo of response.balance_infos) {
+    if (!balanceInfo || typeof balanceInfo !== "object") continue;
+    const entry = balanceInfo as Record<string, unknown>;
+    const currency = typeof entry.currency === "string" ? entry.currency.toUpperCase() : "";
+    const totalBalance = Number(entry.total_balance ?? 0);
+    if (!currency || !Number.isFinite(totalBalance)) continue;
+
+    const isAvailable = response.is_available === true;
+    windows.push({
+      label: deepSeekBalanceLabel(currency, totalBalance),
+      usedPercent: isAvailable && totalBalance > 0 ? 0 : 100,
+      resetsAt: new Date(0),
+    });
+  }
+  return windows;
+}
+
+export async function fetchDeepSeekQuota({
+  apiKey,
+  fetcher = fetch,
+  signal,
+}: DeepSeekQuotaOptions): Promise<OpenAiCodexQuotaResult> {
+  if (!apiKey) return { success: false, error: "No DeepSeek API key found" };
+
+  try {
+    const response = await fetcher("https://api.deepseek.com/user/balance", {
+      signal,
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    });
+    const data: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      return { success: false, error: errorMessage(data, response.statusText || `HTTP ${response.status}`) };
+    }
+    return { success: true, windows: parseDeepSeekQuota(data) };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Quota request failed" };
+  }
 }
 
 export async function fetchZaiQuota({

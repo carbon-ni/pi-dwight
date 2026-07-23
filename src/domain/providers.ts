@@ -31,6 +31,27 @@ export interface ProviderTypeDef {
   auth: "oauth" | "apikey";
 }
 
+const DEEPSEEK_MODELS: ModelDefinition[] = [
+  {
+    id: "deepseek-chat",
+    name: "DeepSeek Chat",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.27, output: 1.1, cacheRead: 0.07, cacheWrite: 0 },
+    contextWindow: 64_000,
+    maxTokens: 8_000,
+  },
+  {
+    id: "deepseek-reasoner",
+    name: "DeepSeek Reasoner",
+    reasoning: true,
+    input: ["text"],
+    cost: { input: 0.55, output: 2.19, cacheRead: 0.14, cacheWrite: 0 },
+    contextWindow: 64_000,
+    maxTokens: 8_000,
+  },
+];
+
 const CODEX_MODELS: ModelDefinition[] = [
   {
     id: "gpt-5.5",
@@ -101,6 +122,13 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     api: "openai-codex-responses",
     models: CODEX_MODELS,
     auth: "oauth",
+  },
+  deepseek: {
+    name: "DeepSeek",
+    baseUrl: "https://api.deepseek.com",
+    api: "openai-completions",
+    auth: "apikey",
+    models: DEEPSEEK_MODELS,
   },
   zai: {
     name: "Z.AI",
