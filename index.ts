@@ -151,13 +151,17 @@ type QuotaStatusContext = {
 
 async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
   const provider = ctx.model?.provider;
-  const account = findAccountForProvider(listAccounts(), provider);
+  const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
+  const accounts = [
+    ...listAccounts(),
+    ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
+  ];
+  const account = findAccountForProvider(accounts, provider);
   if (!account) {
     ctx.ui.setWidget("quotas", undefined);
     return;
   }
 
-  const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
   const result = await fetchMultiAccountQuota(credentials, account);
   const status = formatQuotaStatus(account.id, result);
   if (!status || !result.success) {

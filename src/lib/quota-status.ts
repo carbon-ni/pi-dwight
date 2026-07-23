@@ -7,7 +7,10 @@ export function findAccountForProvider(
   providerName: string | undefined,
 ): Account | undefined {
   if (!providerName) return undefined;
-  return accounts.find((account) => `${account.provider}-${account.id}` === providerName);
+  return accounts.find((account) => {
+    if (`${account.provider}-${account.id}` === providerName) return true;
+    return account.id === "default" && account.provider === providerName;
+  });
 }
 
 export function formatQuotaStatus(
