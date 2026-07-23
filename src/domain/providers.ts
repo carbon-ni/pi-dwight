@@ -1,3 +1,5 @@
+import type { ProviderQuotaPlugin } from "./usage-types.js";
+
 /**
  * Known provider type definitions.
  * Each defines the base URL, API type, display name, and available models.
@@ -24,11 +26,13 @@ export interface ProviderTypeDef {
   /** API base URL */
   baseUrl: string;
   /** Pi API type */
-  api: "openai-codex-responses" | "openai-completions" | "anthropic-messages" | "google-generative-language";
+  api: string;
   /** Available models for this provider */
   models: ModelDefinition[];
   /** Auth mode: "oauth" for /login flow, "apikey" for plain API key */
   auth: "oauth" | "apikey";
+  /** Optional quota/balance fetch plugin */
+  quota?: ProviderQuotaPlugin;
 }
 
 const DEEPSEEK_MODELS: ModelDefinition[] = [

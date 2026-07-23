@@ -1,5 +1,5 @@
 import type { Account } from "../infra/config.js";
-import type { OpenAiCodexQuotaResult } from "../infra/quotas.js";
+import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 
 export interface QuotaOverviewItem {
   account: string;
@@ -9,7 +9,7 @@ export interface QuotaOverviewItem {
 
 interface QuotaOverviewInput {
   account: Account;
-  result: OpenAiCodexQuotaResult;
+  result: ProviderUsageResult;
 }
 
 function timeUntil(date: Date, now: Date): string | undefined {
@@ -25,10 +25,34 @@ function timeUntil(date: Date, now: Date): string | undefined {
   return `${Math.round(milliseconds / (24 * 60 * 60 * 1000))}d`;
 }
 
-function severity(usedPercent: number): QuotaOverviewItem["severity"] {
-  if (usedPercent >= 90) return "error";
-  if (usedPercent >= 70) return "warning";
+function formatItem(item: UsageItem, now: Date): string {
+  if (item.kind === "quota") {
+    const reset = timeUntil(item.resetsAt, now);
+    return `${item.label} ${Math.round(item.usedPercent)}%${reset ? ` (${reset})` : ""}`;
+  }
+  return `${item.label}`;
+}
+
+function itemSeverity(item: UsageItem): QuotaOverviewItem["severity"] {
+  if (item.kind === "quota") {
+    if (item.usedPercent >= 90) return "error";
+    if (item.usedPercent >= 70) return "warning";
+    return "success";
+  }
+  // balance: error if empty, warning if nearly empty, success otherwise
+  if (item.amount <= 0) return "error";
+  if (item.amount < 1) return "warning";
   return "success";
+}
+
+function highestSeverity(items: UsageItem[]): QuotaOverviewItem["severity"] {
+  let sev: QuotaOverviewItem["severity"] = "success";
+  for (const item of items) {
+    const s = itemSeverity(item);
+    if (s === "error") return "error";
+    if (s === "warning") sev = "warning";
+  }
+  return sev;
 }
 
 function compareAccounts(left: QuotaOverviewInput, right: QuotaOverviewInput): number {
@@ -47,16 +71,11 @@ export function buildQuotaOverview(
       return { account: name, status: result.error, severity: "error" };
     }
 
-    if (result.windows.length === 0) {
-      return { account: name, status: "No quota limits returned", severity: "warning" };
+    if (result.items.length === 0) {
+      return { account: name, status: "No usage data returned", severity: "warning" };
     }
 
-    const highestUsage = Math.max(...result.windows.map((window) => window.usedPercent));
-    const status = result.windows.map((window) => {
-      const reset = timeUntil(window.resetsAt, now);
-      return `${window.label} ${Math.round(window.usedPercent)}%${reset ? ` (${reset})` : ""}`;
-    }).join(" · ");
-
-    return { account: name, status, severity: severity(highestUsage) };
+    const status = result.items.map((item) => formatItem(item, now)).join(" · ");
+    return { account: name, status, severity: highestSeverity(result.items) };
   });
 }

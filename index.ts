@@ -164,7 +164,9 @@ async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
     return;
   }
 
-  const highestUsage = Math.max(...result.windows.map((window) => window.usedPercent));
+  const highestUsage = Math.max(
+    ...result.items.map((item) => (item.kind === "quota" ? item.usedPercent : item.amount <= 0 ? 100 : 0)),
+  );
   const color = highestUsage >= 90 ? "error" : highestUsage >= 70 ? "warning" : "success";
   ctx.ui.setWidget("quotas", [ctx.ui.theme.fg(color, `◷ ${status}`)]);
 }

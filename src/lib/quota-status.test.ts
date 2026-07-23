@@ -26,13 +26,13 @@ const in45mins = new Date(now + 45 * 60 * 1000);
 const epoch = new Date(0);
 
 describe("formatQuotaStatus", () => {
-  it("shows usage and days until reset for multi-day windows", () => {
+  it("shows usage and days until reset for multi-day quota items", () => {
     expect(
       formatQuotaStatus("personal", {
         success: true,
-        windows: [
-          { label: "5h", usedPercent: 25, resetsAt: in5days },
-          { label: "7d", usedPercent: 60, resetsAt: in5days },
+        items: [
+          { kind: "quota", label: "5h", usedPercent: 25, resetsAt: in5days },
+          { kind: "quota", label: "7d", usedPercent: 60, resetsAt: in5days },
         ],
       }),
     ).toBe("personal: 5h 25% (5d) · 7d 60% (5d)");
@@ -42,7 +42,7 @@ describe("formatQuotaStatus", () => {
     expect(
       formatQuotaStatus("personal", {
         success: true,
-        windows: [{ label: "1h", usedPercent: 80, resetsAt: in12hours }],
+        items: [{ kind: "quota", label: "1h", usedPercent: 80, resetsAt: in12hours }],
       }),
     ).toBe("personal: 1h 80% (12h)");
   });
@@ -51,21 +51,30 @@ describe("formatQuotaStatus", () => {
     expect(
       formatQuotaStatus("personal", {
         success: true,
-        windows: [{ label: "5h", usedPercent: 90, resetsAt: in45mins }],
+        items: [{ kind: "quota", label: "5h", usedPercent: 90, resetsAt: in45mins }],
       }),
     ).toBe("personal: 5h 90% (45m)");
   });
 
-  it("omits reset info for windows already past reset", () => {
+  it("omits reset info for quota items already past reset", () => {
     expect(
       formatQuotaStatus("personal", {
         success: true,
-        windows: [
-          { label: "5h", usedPercent: 0, resetsAt: epoch },
-          { label: "7d", usedPercent: 50, resetsAt: in5days },
+        items: [
+          { kind: "quota", label: "5h", usedPercent: 0, resetsAt: epoch },
+          { kind: "quota", label: "7d", usedPercent: 50, resetsAt: in5days },
         ],
       }),
     ).toBe("personal: 5h 0% · 7d 50% (5d)");
+  });
+
+  it("shows balance items directly without percentage or reset", () => {
+    expect(
+      formatQuotaStatus("deepseek", {
+        success: true,
+        items: [{ kind: "balance", label: "Balance $10.50", amount: 10.50, currency: "USD" }],
+      }),
+    ).toBe("deepseek: Balance $10.50");
   });
 
   it("does not show a status when quota fetching fails", () => {

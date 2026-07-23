@@ -1,5 +1,5 @@
 import type { Account } from "../infra/config.js";
-import type { OpenAiCodexQuotaResult } from "../infra/quotas.js";
+import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 
 export function findAccountForProvider(
   accounts: Account[],
@@ -23,17 +23,20 @@ function timeUntil(date: Date): string | undefined {
   return `${days}d`;
 }
 
+function formatItem(item: UsageItem): string {
+  if (item.kind === "quota") {
+    const reset = timeUntil(item.resetsAt);
+    const suffix = reset ? ` (${reset})` : "";
+    return `${item.label} ${Math.round(item.usedPercent)}%${suffix}`;
+  }
+  return item.label;
+}
+
 export function formatQuotaStatus(
   accountId: string,
-  result: OpenAiCodexQuotaResult,
+  result: ProviderUsageResult,
 ): string | undefined {
-  if (!result.success || result.windows.length === 0) return undefined;
-  const windows = result.windows
-    .map((window) => {
-      const reset = timeUntil(window.resetsAt);
-      const suffix = reset ? ` (${reset})` : "";
-      return `${window.label} ${Math.round(window.usedPercent)}%${suffix}`;
-    })
-    .join(" · ");
+  if (!result.success || result.items.length === 0) return undefined;
+  const windows = result.items.map((item) => formatItem(item)).join(" · ");
   return `${accountId}: ${windows}`;
 }
