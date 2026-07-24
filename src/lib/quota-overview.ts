@@ -1,9 +1,18 @@
 import type { Account } from "../infra/config.js";
-import type { ProviderUsageResult } from "../domain/usage-types.js";
+import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 import {
   formatUsageItem,
   highestUsageSeverity,
 } from "../domain/usage-views.js";
+
+/** Drop quota items that are 0% with no real reset time — stale API windows. */
+function meaningful(items: UsageItem[]): UsageItem[] {
+  return items.filter((item) => {
+    if (item.kind !== "quota") return true;
+    if (item.usedPercent > 0) return true;
+    return item.resetsAt.getTime() > 0 && item.resetsAt.getTime() > Date.now();
+  });
+}
 
 export interface QuotaOverviewItem {
   account: string;
@@ -28,7 +37,7 @@ export function buildQuotaOverview(
 ): QuotaOverviewItem[] {
   return [...entries]
     .sort(compareAccounts)
-    .filter(({ result }) => !result.success || result.items.length > 0)
+    .filter(({ result }) => !result.success || meaningful(result.items).length > 0)
     .map(({ account, result }) => {
       const name = `${account.provider}-${account.id}`;
 
@@ -36,7 +45,8 @@ export function buildQuotaOverview(
         return { account: name, status: result.error, severity: "error" };
       }
 
-      const status = result.items.map((item) => formatUsageItem(item, now)).join(" · ");
-      return { account: name, status, severity: highestUsageSeverity(result.items) };
+      const items = meaningful(result.items);
+      const status = items.map((item) => formatUsageItem(item, now)).join(" · ");
+      return { account: name, status, severity: highestUsageSeverity(items) };
     });
 }
