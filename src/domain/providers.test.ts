@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { getProviderType, getProviderTypeNames, PROVIDER_ADAPTERS, PROVIDER_TYPES } from "./providers.js";
+import {
+  buildProviderTypes,
+  getProviderType,
+  getProviderTypeNames,
+  PROVIDER_ADAPTERS,
+  PROVIDER_TYPES,
+  type ProviderAdapter,
+} from "./providers.js";
 
 describe("providers", () => {
   describe("PROVIDER_TYPES", () => {
@@ -37,6 +44,30 @@ describe("providers", () => {
         expect(model.contextWindow).toBeGreaterThan(0);
         expect(model.maxTokens).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe("buildProviderTypes", () => {
+    const adapter = (id: string): ProviderAdapter => ({
+      id,
+      name: id,
+      baseUrl: `https://${id}.example.com`,
+      api: "openai-completions",
+      models: [],
+      auth: "apikey",
+    });
+
+    it("indexes adapters by id", () => {
+      const one = adapter("one");
+      const two = adapter("two");
+
+      expect(buildProviderTypes([one, two])).toEqual({ one, two });
+    });
+
+    it("rejects duplicate provider ids", () => {
+      expect(() => buildProviderTypes([adapter("same"), adapter("same")])).toThrow(
+        'Duplicate provider adapter id "same"',
+      );
     });
   });
 

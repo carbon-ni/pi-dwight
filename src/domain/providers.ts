@@ -268,10 +268,21 @@ export const PROVIDER_ADAPTERS: ProviderAdapter[] = [
   zaiProvider,
 ];
 
+export function buildProviderTypes(adapters: ProviderAdapter[]): Record<string, ProviderTypeDef> {
+  const providerTypes: Record<string, ProviderTypeDef> = {};
+
+  for (const adapter of adapters) {
+    if (providerTypes[adapter.id]) {
+      throw new Error(`Duplicate provider adapter id "${adapter.id}"`);
+    }
+    providerTypes[adapter.id] = adapter;
+  }
+
+  return providerTypes;
+}
+
 /** Registry of known provider types. */
-export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = Object.fromEntries(
-  PROVIDER_ADAPTERS.map((provider) => [provider.id, provider]),
-);
+export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = buildProviderTypes(PROVIDER_ADAPTERS);
 
 export function getProviderType(type: string): ProviderTypeDef | undefined {
   return PROVIDER_TYPES[type];
