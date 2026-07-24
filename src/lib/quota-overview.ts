@@ -1,5 +1,5 @@
 import type { Account } from "../infra/config.js";
-import type { ProviderUsageResult } from "../domain/usage-types.js";
+import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 import {
   formatUsageItem,
   highestUsageSeverity,
@@ -16,6 +16,10 @@ interface QuotaOverviewInput {
   result: ProviderUsageResult;
 }
 
+function meaningfulItems(items: UsageItem[]): UsageItem[] {
+  return items.filter((item) => item.kind !== "quota" || item.usedPercent > 0);
+}
+
 function compareAccounts(left: QuotaOverviewInput, right: QuotaOverviewInput): number {
   const providerOrder = left.account.provider.localeCompare(right.account.provider);
   if (providerOrder !== 0) return providerOrder;
@@ -26,17 +30,18 @@ export function buildQuotaOverview(
   entries: QuotaOverviewInput[],
   now = new Date(),
 ): QuotaOverviewItem[] {
-  return [...entries].sort(compareAccounts).map(({ account, result }) => {
-    const name = `${account.provider}-${account.id}`;
-    if (!result.success) {
-      return { account: name, status: result.error, severity: "error" };
-    }
+  return [...entries]
+    .sort(compareAccounts)
+    .filter(({ result }) => !result.success || meaningfulItems(result.items).length > 0)
+    .map(({ account, result }) => {
+      const name = `${account.provider}-${account.id}`;
 
-    if (result.items.length === 0) {
-      return { account: name, status: "No usage data returned", severity: "warning" };
-    }
+      if (!result.success) {
+        return { account: name, status: result.error, severity: "error" };
+      }
 
-    const status = result.items.map((item) => formatUsageItem(item, now)).join(" · ");
-    return { account: name, status, severity: highestUsageSeverity(result.items) };
-  });
+      const items = meaningfulItems(result.items);
+      const status = items.map((item) => formatUsageItem(item, now)).join(" · ");
+      return { account: name, status, severity: highestUsageSeverity(items) };
+    });
 }

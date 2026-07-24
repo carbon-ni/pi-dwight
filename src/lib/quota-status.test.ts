@@ -65,7 +65,7 @@ describe("formatQuotaStatus", () => {
     ).toBe("personal: 5h 90% (45m)");
   });
 
-  it("omits reset info for quota items already past reset", () => {
+  it("omits zero-usage quota items from the display", () => {
     expect(
       formatQuotaStatus("personal", {
         success: true,
@@ -74,7 +74,7 @@ describe("formatQuotaStatus", () => {
           { kind: "quota", label: "7d", usedPercent: 50, resetsAt: in5days },
         ],
       }),
-    ).toBe("personal: 5h 0% · 7d 50% (5d)");
+    ).toBe("personal: 7d 50% (5d)");
   });
 
   it("shows balance items directly without percentage or reset", () => {
@@ -84,6 +84,17 @@ describe("formatQuotaStatus", () => {
         items: [{ kind: "balance", label: "Balance $10.50", amount: 10.50, currency: "USD" }],
       }),
     ).toBe("deepseek: Balance $10.50");
+  });
+
+  it("does not show a status when all quota items have zero usage", () => {
+    expect(
+      formatQuotaStatus("personal", {
+        success: true,
+        items: [
+          { kind: "quota", label: "5h", usedPercent: 0, resetsAt: epoch },
+        ],
+      }),
+    ).toBeUndefined();
   });
 
   it("does not show a status when quota fetching fails", () => {
