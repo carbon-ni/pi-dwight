@@ -188,39 +188,48 @@ const CODEX_MODELS: ModelDefinition[] = [
   },
 ];
 
-/** Registry of known provider types. */
-export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
-  openai: {
-    name: "OpenAI",
-    baseUrl: "https://chatgpt.com/backend-api",
-    api: "openai-codex-responses",
-    models: CODEX_MODELS,
-    auth: "oauth",
-    usage: { viewType: "quota", quota: { fetch: openaiFetch } },
-  },
-  openrouter: {
-    name: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    api: "openai-completions",
-    auth: "apikey",
-    models: OPENROUTER_MODELS,
-    usage: { viewType: "balance", quota: { fetch: openrouterFetch } },
-  },
-  deepseek: {
-    name: "DeepSeek",
-    baseUrl: "https://api.deepseek.com",
-    api: "openai-completions",
-    auth: "apikey",
-    models: DEEPSEEK_MODELS,
-    usage: { viewType: "balance", quota: { fetch: deepseekFetch } },
-  },
-  zai: {
-    name: "Z.AI",
-    baseUrl: "https://api.z.ai/api/paas/v4",
-    api: "openai-completions",
-    auth: "apikey",
-    usage: { viewType: "quota", quota: { fetch: zaiFetch } },
-    models: [
+export interface ProviderAdapter extends ProviderTypeDef {
+  id: string;
+}
+
+const openaiProvider: ProviderAdapter = {
+  id: "openai",
+  name: "OpenAI",
+  baseUrl: "https://chatgpt.com/backend-api",
+  api: "openai-codex-responses",
+  models: CODEX_MODELS,
+  auth: "oauth",
+  usage: { viewType: "quota", quota: { fetch: openaiFetch } },
+};
+
+const openrouterProvider: ProviderAdapter = {
+  id: "openrouter",
+  name: "OpenRouter",
+  baseUrl: "https://openrouter.ai/api/v1",
+  api: "openai-completions",
+  auth: "apikey",
+  models: OPENROUTER_MODELS,
+  usage: { viewType: "balance", quota: { fetch: openrouterFetch } },
+};
+
+const deepseekProvider: ProviderAdapter = {
+  id: "deepseek",
+  name: "DeepSeek",
+  baseUrl: "https://api.deepseek.com",
+  api: "openai-completions",
+  auth: "apikey",
+  models: DEEPSEEK_MODELS,
+  usage: { viewType: "balance", quota: { fetch: deepseekFetch } },
+};
+
+const zaiProvider: ProviderAdapter = {
+  id: "zai",
+  name: "Z.AI",
+  baseUrl: "https://api.z.ai/api/paas/v4",
+  api: "openai-completions",
+  auth: "apikey",
+  usage: { viewType: "quota", quota: { fetch: zaiFetch } },
+  models: [
       {
         id: "glm-5.2",
         name: "GLM-5.2",
@@ -249,9 +258,20 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
         contextWindow: 128_000,
         maxTokens: 32_768,
       },
-    ],
-  },
+  ],
 };
+
+export const PROVIDER_ADAPTERS: ProviderAdapter[] = [
+  openaiProvider,
+  openrouterProvider,
+  deepseekProvider,
+  zaiProvider,
+];
+
+/** Registry of known provider types. */
+export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = Object.fromEntries(
+  PROVIDER_ADAPTERS.map((provider) => [provider.id, provider]),
+);
 
 export function getProviderType(type: string): ProviderTypeDef | undefined {
   return PROVIDER_TYPES[type];
