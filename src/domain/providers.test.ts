@@ -1,11 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { buildProviderTypes, type ProviderAdapter } from "./provider-adapter.js";
 import {
-  buildProviderTypes,
   getProviderType,
   getProviderTypeNames,
   PROVIDER_ADAPTERS,
   PROVIDER_TYPES,
-  type ProviderAdapter,
 } from "./providers.js";
 
 describe("providers", () => {

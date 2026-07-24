@@ -1,3 +1,5 @@
+import type { ProviderAdapter } from "./provider-adapter.js";
+import { buildProviderTypes } from "./provider-adapter.js";
 import type { ProviderQuotaPlugin } from "./usage-types.js";
 import {
   deepseekFetch,
@@ -188,10 +190,6 @@ const CODEX_MODELS: ModelDefinition[] = [
   },
 ];
 
-export interface ProviderAdapter extends ProviderTypeDef {
-  id: string;
-}
-
 const openaiProvider: ProviderAdapter = {
   id: "openai",
   name: "OpenAI",
@@ -267,19 +265,6 @@ export const PROVIDER_ADAPTERS: ProviderAdapter[] = [
   deepseekProvider,
   zaiProvider,
 ];
-
-export function buildProviderTypes(adapters: ProviderAdapter[]): Record<string, ProviderTypeDef> {
-  const providerTypes: Record<string, ProviderTypeDef> = {};
-
-  for (const adapter of adapters) {
-    if (providerTypes[adapter.id]) {
-      throw new Error(`Duplicate provider adapter id "${adapter.id}"`);
-    }
-    providerTypes[adapter.id] = adapter;
-  }
-
-  return providerTypes;
-}
 
 /** Registry of known provider types. */
 export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = buildProviderTypes(PROVIDER_ADAPTERS);
