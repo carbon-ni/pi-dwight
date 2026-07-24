@@ -44,7 +44,7 @@ describe("formatQuotaStatus", () => {
           { kind: "quota", label: "7d", usedPercent: 60, resetsAt: in5days },
         ],
       }),
-    ).toBe("personal: 5h 25% (5d) · 7d 60% (5d)");
+    ).toBe("personal: 25% (5d) · 60% (5d)");
   });
 
   it("shows hours when less than a day remains", () => {
@@ -53,7 +53,7 @@ describe("formatQuotaStatus", () => {
         success: true,
         items: [{ kind: "quota", label: "1h", usedPercent: 80, resetsAt: in12hours }],
       }),
-    ).toBe("personal: 1h 80% (12h)");
+    ).toBe("personal: 80% (12h)");
   });
 
   it("shows minutes when less than an hour remains", () => {
@@ -62,7 +62,7 @@ describe("formatQuotaStatus", () => {
         success: true,
         items: [{ kind: "quota", label: "5h", usedPercent: 90, resetsAt: in45mins }],
       }),
-    ).toBe("personal: 5h 90% (45m)");
+    ).toBe("personal: 90% (45m)");
   });
 
   it("omits zero-usage quota items from the display", () => {
@@ -74,7 +74,7 @@ describe("formatQuotaStatus", () => {
           { kind: "quota", label: "7d", usedPercent: 50, resetsAt: in5days },
         ],
       }),
-    ).toBe("personal: 7d 50% (5d)");
+    ).toBe("personal: 50% (5d)");
   });
 
   it("shows balance items directly without percentage or reset", () => {

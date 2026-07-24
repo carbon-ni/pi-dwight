@@ -20,7 +20,7 @@ export function formatUsageItem(item: UsageItem, now = new Date()): string {
   if (item.kind === "quota") {
     const reset = timeUntil(item.resetsAt, now);
     const suffix = reset ? ` (${reset})` : "";
-    return `${item.label} ${Math.round(item.usedPercent)}%${suffix}`;
+    return `${Math.round(item.usedPercent)}%${suffix}`;
   }
   return item.label;
 }
