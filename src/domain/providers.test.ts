@@ -7,11 +7,13 @@ describe("providers", () => {
       expect(PROVIDER_TYPES.openai).toBeDefined();
     });
 
-    it("openai uses codex-responses API", () => {
+    it("openai uses codex-responses API with quota usage view", () => {
       const oai = PROVIDER_TYPES.openai;
       expect(oai.name).toBe("OpenAI");
       expect(oai.baseUrl).toContain("chatgpt.com");
       expect(oai.api).toBe("openai-codex-responses");
+      expect(oai.usage?.viewType).toBe("quota");
+      expect(oai.usage?.quota).toBeDefined();
       expect(oai.models.length).toBeGreaterThan(0);
     });
 
@@ -46,6 +48,8 @@ describe("providers", () => {
       expect(zai.baseUrl).toBe("https://api.z.ai/api/paas/v4");
       expect(zai.api).toBe("openai-completions");
       expect(zai.auth).toBe("apikey");
+      expect(zai.usage?.viewType).toBe("quota");
+      expect(zai.usage?.quota).toBeDefined();
       expect(zai.models.length).toBeGreaterThan(0);
     });
 
@@ -77,6 +81,8 @@ describe("providers", () => {
       expect(deepseek.baseUrl).toBe("https://api.deepseek.com");
       expect(deepseek.api).toBe("openai-completions");
       expect(deepseek.auth).toBe("apikey");
+      expect(deepseek.usage?.viewType).toBe("balance");
+      expect(deepseek.usage?.quota).toBeDefined();
       expect(deepseek.models.length).toBeGreaterThan(0);
     });
 
@@ -114,6 +120,8 @@ describe("providers", () => {
       expect(or.baseUrl).toBe("https://openrouter.ai/api/v1");
       expect(or.api).toBe("openai-completions");
       expect(or.auth).toBe("apikey");
+      expect(or.usage?.viewType).toBe("balance");
+      expect(or.usage?.quota).toBeDefined();
       expect(or.models.length).toBeGreaterThan(0);
     });
 

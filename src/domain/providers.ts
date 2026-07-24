@@ -1,4 +1,10 @@
 import type { ProviderQuotaPlugin } from "./usage-types.js";
+import {
+  deepseekFetch,
+  openaiFetch,
+  openrouterFetch,
+  zaiFetch,
+} from "./provider-usage.js";
 
 /**
  * Known provider type definitions.
@@ -20,6 +26,13 @@ export interface ModelDefinition {
   maxTokens: number;
 }
 
+export type ProviderUsageViewType = "quota" | "balance" | "mixed";
+
+export interface ProviderUsageAdapter {
+  viewType: ProviderUsageViewType;
+  quota: ProviderQuotaPlugin;
+}
+
 export interface ProviderTypeDef {
   /** Display name shown in /login and /model */
   name: string;
@@ -31,8 +44,8 @@ export interface ProviderTypeDef {
   models: ModelDefinition[];
   /** Auth mode: "oauth" for /login flow, "apikey" for plain API key */
   auth: "oauth" | "apikey";
-  /** Optional quota/balance fetch plugin */
-  quota?: ProviderQuotaPlugin;
+  /** Optional quota/balance usage adapter */
+  usage?: ProviderUsageAdapter;
 }
 
 const OPENROUTER_MODELS: ModelDefinition[] = [
@@ -183,6 +196,7 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     api: "openai-codex-responses",
     models: CODEX_MODELS,
     auth: "oauth",
+    usage: { viewType: "quota", quota: { fetch: openaiFetch } },
   },
   openrouter: {
     name: "OpenRouter",
@@ -190,6 +204,7 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     api: "openai-completions",
     auth: "apikey",
     models: OPENROUTER_MODELS,
+    usage: { viewType: "balance", quota: { fetch: openrouterFetch } },
   },
   deepseek: {
     name: "DeepSeek",
@@ -197,12 +212,14 @@ export const PROVIDER_TYPES: Record<string, ProviderTypeDef> = {
     api: "openai-completions",
     auth: "apikey",
     models: DEEPSEEK_MODELS,
+    usage: { viewType: "balance", quota: { fetch: deepseekFetch } },
   },
   zai: {
     name: "Z.AI",
     baseUrl: "https://api.z.ai/api/paas/v4",
     api: "openai-completions",
     auth: "apikey",
+    usage: { viewType: "quota", quota: { fetch: zaiFetch } },
     models: [
       {
         id: "glm-5.2",
