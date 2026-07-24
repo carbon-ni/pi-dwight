@@ -3,6 +3,7 @@ import type { ProviderUsageResult } from "../domain/usage-types.js";
 import { getProviderType } from "../domain/providers.js";
 
 export {
+  parseAnthropicQuota,
   parseDeepSeekQuota,
   parseOpenAiCodexQuota,
   parseOpenRouterQuota,

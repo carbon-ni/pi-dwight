@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchMultiAccountQuota,
   fetchMultiAccountQuotas,
+  parseAnthropicQuota,
   parseDeepSeekQuota,
   parseOpenAiCodexQuota,
   parseOpenRouterQuota,
@@ -69,6 +70,32 @@ describe("parseDeepSeekQuota", () => {
 
   it("returns no items for an unrecognised response", () => {
     expect(parseDeepSeekQuota({})).toEqual([]);
+  });
+});
+
+describe("parseAnthropicQuota", () => {
+  it("maps balance and monthly limits into mixed usage items", () => {
+    expect(parseAnthropicQuota({
+      five_hour: { utilization: 23.4, resets_at: "2026-04-22T18:30:00Z" },
+      seven_day: { utilization: 14.1, resets_at: "2026-04-25T08:30:00Z" },
+      seven_day_sonnet: { utilization: 8, resets_at: "2026-04-23T23:00:00Z" },
+      extra_usage: {
+        is_enabled: true,
+        monthly_limit: 30000,
+        used_credits: 21548,
+        utilization: 71.83,
+        currency: "AUD",
+      },
+    })).toEqual([
+      { kind: "quota", label: "5h", usedPercent: 23.4, resetsAt: new Date("2026-04-22T18:30:00Z") },
+      { kind: "quota", label: "7d", usedPercent: 14.1, resetsAt: new Date("2026-04-25T08:30:00Z") },
+      { kind: "quota", label: "7d Sonnet", usedPercent: 8, resetsAt: new Date("2026-04-23T23:00:00Z") },
+      expect.objectContaining({ kind: "quota", label: "Extra (AUD)", usedPercent: 71.83 }),
+    ]);
+  });
+
+  it("returns no items for an unrecognised response", () => {
+    expect(parseAnthropicQuota({})).toEqual([]);
   });
 });
 
@@ -199,11 +226,35 @@ describe("fetchMultiAccountQuota", () => {
     });
   });
 
+  it("uses an Anthropic multi-account provider credential", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ five_hour: { utilization: 23.4, resets_at: "2026-04-22T18:30:00Z" } }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("oauth-token") };
+
+    const result = await fetchMultiAccountQuota(authStorage, { provider: "anthropic", id: "work", key: "" }, fetcher);
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("anthropic-work");
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.anthropic.com/api/oauth/usage",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer oauth-token",
+          "anthropic-beta": "oauth-2025-04-20",
+        }),
+      }),
+    );
+    expect(result).toEqual({
+      success: true,
+      items: [{ kind: "quota", label: "5h", usedPercent: 23.4, resetsAt: new Date("2026-04-22T18:30:00Z") }],
+    });
+  });
+
   it("returns a readable error for an unsupported provider", async () => {
     const authStorage = { getApiKey: vi.fn() };
 
     await expect(
-      fetchMultiAccountQuota(authStorage, { provider: "anthropic", id: "team", key: "" }),
-    ).resolves.toEqual({ success: false, error: "Quota fetching is not supported for anthropic" });
+      fetchMultiAccountQuota(authStorage, { provider: "unknown", id: "team", key: "" }),
+    ).resolves.toEqual({ success: false, error: "Quota fetching is not supported for unknown" });
   });
 });

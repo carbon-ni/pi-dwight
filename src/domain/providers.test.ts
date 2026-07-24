@@ -15,6 +15,7 @@ describe("providers", () => {
         "OpenRouter",
         "DeepSeek",
         "Z.AI",
+        "Anthropic",
       ]);
       expect(PROVIDER_TYPES.openai).toBe(PROVIDER_ADAPTERS[0]);
     });
@@ -184,6 +185,20 @@ describe("providers", () => {
     });
   });
 
+  describe("anthropic", () => {
+    it("uses anthropic messages API with mixed usage view", () => {
+      const anthropic = PROVIDER_TYPES.anthropic;
+      expect(anthropic).toBeDefined();
+      expect(anthropic.name).toBe("Anthropic");
+      expect(anthropic.baseUrl).toBe("https://api.anthropic.com");
+      expect(anthropic.api).toBe("anthropic-messages");
+      expect(anthropic.auth).toBe("apikey");
+      expect(anthropic.usage?.viewType).toBe("mixed");
+      expect(anthropic.usage?.quota).toBeDefined();
+      expect(anthropic.models.map((model) => model.id)).toContain("claude-sonnet-4-6");
+    });
+  });
+
   describe("getProviderTypeNames", () => {
     it("returns list of known provider names", () => {
       const names = getProviderTypeNames();
@@ -191,6 +206,7 @@ describe("providers", () => {
       expect(names).toContain("zai");
       expect(names).toContain("deepseek");
       expect(names).toContain("openrouter");
+      expect(names).toContain("anthropic");
     });
   });
 });
