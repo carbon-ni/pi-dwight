@@ -1,10 +1,6 @@
 import type { Account } from "../infra/config.js";
-import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
+import type { ProviderUsageResult } from "../domain/usage-types.js";
 import { formatUsageItem } from "../domain/usage-views.js";
-
-function meaningfulItems(items: UsageItem[]): UsageItem[] {
-  return items.filter((item) => item.kind !== "quota" || item.usedPercent > 0);
-}
 
 export function findAccountForProvider(
   accounts: Account[],
@@ -22,8 +18,7 @@ export function formatQuotaStatus(
   result: ProviderUsageResult,
 ): string | undefined {
   if (!result.success) return undefined;
-  const items = meaningfulItems(result.items);
-  if (items.length === 0) return undefined;
-  const windows = items.map((item) => formatUsageItem(item)).join(" · ");
+  if (result.items.length === 0) return undefined;
+  const windows = result.items.map((item) => formatUsageItem(item)).join(" · ");
   return `${accountId}: ${windows}`;
 }
