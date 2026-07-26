@@ -14,10 +14,12 @@ describe("listDefaultQuotaAccounts", () => {
     expect(credentials.getApiKey).toHaveBeenCalledWith("zai");
   });
 
-  it("skips OAuth providers because their quota needs account-specific metadata", async () => {
+  it("maps an OAuth adapter to its built-in Pi provider", async () => {
     const credentials = { getApiKey: vi.fn().mockResolvedValue("token") };
 
-    await expect(listDefaultQuotaAccounts(credentials, ["openai"])).resolves.toEqual([]);
-    expect(credentials.getApiKey).not.toHaveBeenCalled();
+    await expect(listDefaultQuotaAccounts(credentials, ["openai"])).resolves.toEqual([
+      { provider: "openai", id: "default", key: "", credentialProvider: "openai-codex" },
+    ]);
+    expect(credentials.getApiKey).toHaveBeenCalledWith("openai-codex");
   });
 });

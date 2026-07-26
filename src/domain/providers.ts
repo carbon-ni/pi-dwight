@@ -34,6 +34,8 @@ export type ProviderUsageViewType = "quota" | "balance" | "mixed";
 export interface ProviderUsageAdapter {
   viewType: ProviderUsageViewType;
   quota: ProviderQuotaPlugin;
+  /** Built-in Pi provider that supplies credentials for the default account. */
+  defaultCredentialProvider?: string;
 }
 
 export interface ProviderTypeDef {
@@ -237,7 +239,11 @@ const openaiProvider: ProviderAdapter = {
   api: "openai-codex-responses",
   models: CODEX_MODELS,
   auth: "oauth",
-  usage: { viewType: "quota", quota: { fetch: openaiFetch } },
+  usage: {
+    viewType: "quota",
+    quota: { fetch: openaiFetch },
+    defaultCredentialProvider: "openai-codex",
+  },
 };
 
 const openrouterProvider: ProviderAdapter = {

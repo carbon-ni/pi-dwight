@@ -23,6 +23,15 @@ describe("findAccountForProvider", () => {
     ).toMatchObject({ provider: "deepseek", id: "default" });
   });
 
+  it("finds a default account by its built-in credential provider", () => {
+    expect(
+      findAccountForProvider(
+        [{ provider: "openai", id: "default", key: "", credentialProvider: "openai-codex" }],
+        "openai-codex",
+      ),
+    ).toMatchObject({ provider: "openai", id: "default" });
+  });
+
   it("returns undefined when the active provider is not a managed account", () => {
     expect(findAccountForProvider([], "openai-codex")).toBeUndefined();
   });

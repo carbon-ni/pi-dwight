@@ -17,6 +17,7 @@ interface AccountCredentialSource {
 }
 
 function credentialProviderName(account: Account): string {
+  if (account.credentialProvider) return account.credentialProvider;
   if (account.id === "default") return account.provider;
   return `${account.provider}-${account.id}`;
 }

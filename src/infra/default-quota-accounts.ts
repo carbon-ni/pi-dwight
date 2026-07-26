@@ -13,12 +13,20 @@ export async function listDefaultQuotaAccounts(
 
   for (const provider of providerNames) {
     const typeDef = getProviderType(provider);
-    if (typeDef?.auth !== "apikey") continue;
+    if (!typeDef?.usage?.quota) continue;
 
-    const apiKey = await credentials.getApiKey(provider);
+    const credentialProvider = typeDef.usage.defaultCredentialProvider ?? provider;
+    if (typeDef.auth === "oauth" && !typeDef.usage.defaultCredentialProvider) continue;
+
+    const apiKey = await credentials.getApiKey(credentialProvider);
     if (!apiKey) continue;
 
-    accounts.push({ provider, id: "default", key: "" });
+    accounts.push({
+      provider,
+      id: "default",
+      key: "",
+      ...(credentialProvider === provider ? {} : { credentialProvider }),
+    });
   }
 
   return accounts;

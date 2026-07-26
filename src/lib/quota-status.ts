@@ -18,6 +18,7 @@ export function findAccountForProvider(
 ): Account | undefined {
   if (!providerName) return undefined;
   return accounts.find((account) => {
+    if (account.credentialProvider === providerName) return true;
     if (`${account.provider}-${account.id}` === providerName) return true;
     return account.id === "default" && account.provider === providerName;
   });

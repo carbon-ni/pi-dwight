@@ -16,6 +16,8 @@ export interface Account {
   key: string;
   /** Provider account ID required by its quota endpoint, when applicable. */
   accountId?: string;
+  /** Pi provider name that owns credentials when it differs from `provider`. */
+  credentialProvider?: string;
 }
 
 export interface DisabledModel {

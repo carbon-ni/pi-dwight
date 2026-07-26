@@ -170,6 +170,27 @@ describe("fetchMultiAccountQuota", () => {
     expect(authStorage.getApiKey).toHaveBeenCalledWith("deepseek");
   });
 
+  it("uses the built-in Pi provider credential for default openai", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ rate_limit: {} }), { status: 200 }),
+    );
+    const authStorage = { getApiKey: vi.fn().mockResolvedValue("access-token") };
+
+    await fetchMultiAccountQuota(
+      authStorage,
+      {
+        provider: "openai",
+        id: "default",
+        key: "",
+        accountId: "account-id",
+        credentialProvider: "openai-codex",
+      },
+      fetcher,
+    );
+
+    expect(authStorage.getApiKey).toHaveBeenCalledWith("openai-codex");
+  });
+
   it("uses a Z.ai multi-account provider credential", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ data: { limits: [] } }), { status: 200 }),
