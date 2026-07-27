@@ -9,6 +9,7 @@ export interface ProviderRegistrar {
 }
 
 export interface ModelRegistryReader {
+  getAll?(): RegistryModel[];
   getAvailable(): RegistryModel[] | Promise<RegistryModel[]>;
   __multiAccountVisibilityOriginalGetAvailable?: () => RegistryModel[] | Promise<RegistryModel[]>;
 }

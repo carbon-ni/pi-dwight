@@ -5,6 +5,7 @@ import type { ProviderTypeDef } from "../domain/providers.js";
 
 function provider(auth: ProviderTypeDef["auth"]): ProviderTypeDef {
   return {
+    builtInProvider: "provider",
     name: "Provider",
     baseUrl: "https://example.com",
     api: "openai-completions",

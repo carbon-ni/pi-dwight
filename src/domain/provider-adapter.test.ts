@@ -4,6 +4,7 @@ import { buildProviderTypes, type ProviderAdapter } from "./provider-adapter.js"
 function adapter(id: string): ProviderAdapter {
   return {
     id,
+    builtInProvider: id,
     name: id,
     baseUrl: `https://${id}.example.com`,
     api: "openai-completions",

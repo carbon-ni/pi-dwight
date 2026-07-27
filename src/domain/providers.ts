@@ -39,6 +39,8 @@ export interface ProviderUsageAdapter {
 }
 
 export interface ProviderTypeDef {
+  /** Pi built-in provider whose model catalog this account type inherits. */
+  builtInProvider: string;
   /** Display name shown in /login and /model */
   name: string;
   /** API base URL */
@@ -234,6 +236,7 @@ const CODEX_MODELS: ModelDefinition[] = [
 
 const openaiProvider: ProviderAdapter = {
   id: "openai",
+  builtInProvider: "openai-codex",
   name: "OpenAI",
   baseUrl: "https://chatgpt.com/backend-api",
   api: "openai-codex-responses",
@@ -248,6 +251,7 @@ const openaiProvider: ProviderAdapter = {
 
 const openrouterProvider: ProviderAdapter = {
   id: "openrouter",
+  builtInProvider: "openrouter",
   name: "OpenRouter",
   baseUrl: "https://openrouter.ai/api/v1",
   api: "openai-completions",
@@ -258,6 +262,7 @@ const openrouterProvider: ProviderAdapter = {
 
 const deepseekProvider: ProviderAdapter = {
   id: "deepseek",
+  builtInProvider: "deepseek",
   name: "DeepSeek",
   baseUrl: "https://api.deepseek.com",
   api: "openai-completions",
@@ -268,6 +273,7 @@ const deepseekProvider: ProviderAdapter = {
 
 const anthropicProvider: ProviderAdapter = {
   id: "anthropic",
+  builtInProvider: "anthropic",
   name: "Anthropic",
   baseUrl: "https://api.anthropic.com",
   api: "anthropic-messages",
@@ -278,6 +284,7 @@ const anthropicProvider: ProviderAdapter = {
 
 const zaiProvider: ProviderAdapter = {
   id: "zai",
+  builtInProvider: "zai",
   name: "Z.AI",
   baseUrl: "https://api.z.ai/api/paas/v4",
   api: "openai-completions",

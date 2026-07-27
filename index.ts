@@ -44,6 +44,7 @@ import {
   removeAlias,
 } from "./src/infra/alias.js";
 import { getProviderType, getProviderTypeNames } from "./src/domain/providers.js";
+import { modelsForAccountProvider } from "./src/domain/inherited-models.js";
 import {
   applyVisibilityRules,
   type ModelRegistryReader,
@@ -211,24 +212,30 @@ function createOauthProvider(accountId: string) {
 }
 
 /** Register all accounts from config as pi providers. */
-function registerAllAccounts(pi: ExtensionAPI): void {
+function registerAllAccounts(pi: ExtensionAPI, registryModels: RegistryModel[] = []): void {
   const config = readConfig();
   for (const account of config.accounts) {
-    registerAccountProvider(pi, account.id, account.provider);
+    registerAccountProvider(pi, account.id, account.provider, registryModels);
   }
 }
 
-/** Register a single account as a pi provider. Uses OAuth or API key based on provider type. */
+/** Register a single account as a provider, inheriting Pi's built-in model catalog. */
 function registerAccountProvider(
   pi: ExtensionAPI,
   accountId: string,
   providerType: string,
+  registryModels: RegistryModel[] = [],
 ): void {
   const typeDef = getProviderType(providerType);
   if (!typeDef) return;
 
   const name = providerName(providerType, accountId);
-  const models = filterVisibleModels(name, typeDef.models);
+  const accountModels = modelsForAccountProvider(
+    typeDef.builtInProvider,
+    registryModels,
+    typeDef.models,
+  );
+  const models = filterVisibleModels(name, accountModels);
   if (models.length === 0) return;
 
   const account = readConfig().accounts.find((a) => a.id === accountId && a.provider === providerType);
@@ -283,9 +290,12 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
+    const registry = ctx.modelRegistry as unknown as ModelRegistryReader;
+    const catalogModels = registry.getAll?.() ?? await registry.getAvailable();
+    registerAllAccounts(pi, catalogModels);
     await applyVisibilityRules(
       pi as unknown as ProviderRegistrar,
-      ctx.modelRegistry as unknown as ModelRegistryReader,
+      registry,
       getVisibilityFilter,
     );
 

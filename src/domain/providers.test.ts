@@ -20,8 +20,14 @@ describe("providers", () => {
       expect(PROVIDER_TYPES.openai).toBe(PROVIDER_ADAPTERS[0]);
     });
 
-    it("contains openai", () => {
-      expect(PROVIDER_TYPES.openai).toBeDefined();
+    it("maps every account type to its Pi built-in provider catalog", () => {
+      expect(PROVIDER_ADAPTERS.map(({ id, builtInProvider }) => [id, builtInProvider])).toEqual([
+        ["openai", "openai-codex"],
+        ["openrouter", "openrouter"],
+        ["deepseek", "deepseek"],
+        ["zai", "zai"],
+        ["anthropic", "anthropic"],
+      ]);
     });
 
     it("openai uses codex-responses API with quota usage view", () => {
@@ -50,6 +56,7 @@ describe("providers", () => {
   describe("buildProviderTypes", () => {
     const adapter = (id: string): ProviderAdapter => ({
       id,
+      builtInProvider: id,
       name: id,
       baseUrl: `https://${id}.example.com`,
       api: "openai-completions",
