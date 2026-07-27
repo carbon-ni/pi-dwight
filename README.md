@@ -6,6 +6,8 @@ Manage multiple provider accounts and model aliases for [pi](https://pi.dev).
 
 Each account gets its own OAuth login. Aliases let you start sessions with a short name instead of picking provider + model every time.
 
+</br>
+
 ## Setup
 
 No config needed — just start using the commands. State is persisted to `~/.pi/agent/multi-account.json`.
