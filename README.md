@@ -1,5 +1,7 @@
 # pi-dwight — Multi-Account Extension
 
+<img width="154" height="129" alt="dwight" src="https://github.com/user-attachments/assets/7dc5edf1-4bc5-443d-8dd5-467e119fc0be" align="left" />
+
 Manage multiple provider accounts and model aliases for [pi](https://pi.dev).
 
 Each account gets its own OAuth login. Aliases let you start sessions with a short name instead of picking provider + model every time.
