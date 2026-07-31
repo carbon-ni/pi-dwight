@@ -14,6 +14,15 @@ function meaningful(items: UsageItem[]): UsageItem[] {
   });
 }
 
+function formatOverviewItem(item: UsageItem, now: Date): string {
+  if (item.kind !== "quota") return formatUsageItem(item, now);
+
+  const width = 10;
+  const used = Math.round(Math.min(100, Math.max(0, item.usedPercent)) / 100 * width);
+  const bar = `${"█".repeat(used)}${"░".repeat(width - used)}`;
+  return `${item.label} [${bar}] ${formatUsageItem(item, now)}`;
+}
+
 export interface QuotaOverviewItem {
   account: string;
   status: string;
@@ -46,7 +55,7 @@ export function buildQuotaOverview(
       }
 
       const items = meaningful(result.items);
-      const status = items.map((item) => formatUsageItem(item, now)).join(" · ");
+      const status = items.map((item) => formatOverviewItem(item, now)).join(" · ");
       return { account: name, status, severity: highestUsageSeverity(items) };
     });
 }

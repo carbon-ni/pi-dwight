@@ -19,8 +19,22 @@ describe("buildQuotaOverview", () => {
         },
       },
     ], new Date("2026-04-14T12:00:00Z"))).toEqual([
-      { account: "openai-personal", status: "25% (1d)", severity: "success" },
-      { account: "zai-work", status: "90% (1h)", severity: "error" },
+      { account: "openai-personal", status: "5h [███░░░░░░░] 25% (1d)", severity: "success" },
+      { account: "zai-work", status: "5h [█████████░] 90% (1h)", severity: "error" },
+    ]);
+  });
+
+  it("clamps quota bars to the available range", () => {
+    expect(buildQuotaOverview([
+      {
+        account: { provider: "openai", id: "personal", key: "" },
+        result: {
+          success: true,
+          items: [{ kind: "quota", label: "5h", usedPercent: 125, resetsAt: new Date("2026-04-15T12:00:00Z") }],
+        },
+      },
+    ], new Date("2026-04-14T12:00:00Z"))).toEqual([
+      { account: "openai-personal", status: "5h [██████████] 125% (1d)", severity: "error" },
     ]);
   });
 
