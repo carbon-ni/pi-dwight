@@ -7,24 +7,24 @@ function currencySymbol(currency: string): string {
 }
 
 /**
- * Amount spent (or quota consumed) between two consecutive quota samples.
- * Positive balance deltas are shown as "spent $X.XX"; quota windows as "+N%".
- * Top-ups, resets, and non-comparable samples return undefined.
+ * Difference between the session-start baseline and the current sample.
+ * Balance decreases show as "-$0.03"; quota windows as "+3%". Top-ups,
+ * resets, and non-comparable samples return undefined.
  */
-export function formatSpentBetweenUpdates(
-  previous: ProviderUsageResult | undefined,
+export function formatQuotaDelta(
+  baseline: ProviderUsageResult | undefined,
   current: ProviderUsageResult | undefined,
 ): string | undefined {
-  if (!previous?.success || !current?.success) return undefined;
+  if (!baseline?.success || !current?.success) return undefined;
 
-  const spent = balanceSpentBetween(previous.items, current.items);
+  const spent = balanceSpentBetween(baseline.items, current.items);
   if (spent !== undefined) {
     if (spent.amount <= 0) return undefined;
-    return `spent ${currencySymbol(spent.currency)}${spent.amount.toFixed(2)}`;
+    return `-${currencySymbol(spent.currency)}${spent.amount.toFixed(2)}`;
   }
 
   const primary = current.items[0];
-  const before = previous.items[0];
+  const before = baseline.items[0];
   if (primary?.kind !== "quota" || before?.kind !== "quota") return undefined;
 
   const delta = primary.usedPercent - before.usedPercent;
@@ -33,14 +33,31 @@ export function formatSpentBetweenUpdates(
 }
 
 /**
+ * Record a quota sample and return its delta against the session baseline.
+ * The first successful sample per account becomes the baseline; later
+ * samples are measured against it and never replace it.
+ */
+export function computeQuotaDelta(
+  baseline: Map<string, ProviderUsageResult>,
+  accountKey: string,
+  result: ProviderUsageResult,
+): string | undefined {
+  const delta = formatQuotaDelta(baseline.get(accountKey), result);
+  if (result.success && !baseline.has(accountKey)) {
+    baseline.set(accountKey, result);
+  }
+  return delta;
+}
+
+/**
  * Sum of balance decreases between two samples. Returns undefined when the
  * item shapes are not comparable (kind mismatch) or currencies are mixed.
  */
 function balanceSpentBetween(
-  previous: UsageItem[],
+  baseline: UsageItem[],
   current: UsageItem[],
 ): { amount: number; currency: string } | undefined {
-  const previousBalances = previous.filter((item): item is Extract<UsageItem, { kind: "balance" }> => item.kind === "balance");
+  const baselineBalances = baseline.filter((item): item is Extract<UsageItem, { kind: "balance" }> => item.kind === "balance");
   const currentBalances = current.filter((item): item is Extract<UsageItem, { kind: "balance" }> => item.kind === "balance");
   if (currentBalances.length === 0) return undefined;
 
@@ -51,9 +68,9 @@ function balanceSpentBetween(
   let spent = 0;
   for (let index = 0; index < currentBalances.length; index += 1) {
     const currentItem = currentBalances[index];
-    const previousItem = previousBalances[index];
-    if (!previousItem || previousItem.currency !== currentItem.currency) return undefined;
-    spent += previousItem.amount - currentItem.amount;
+    const baselineItem = baselineBalances[index];
+    if (!baselineItem || baselineItem.currency !== currentItem.currency) return undefined;
+    spent += baselineItem.amount - currentItem.amount;
   }
   return { amount: spent, currency };
 }
