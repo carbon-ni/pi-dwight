@@ -65,7 +65,9 @@ import { readProjectDefaults } from "./src/infra/project-config.js";
 import { formatVisibilityRules } from "./src/lib/visibility-format.js";
 import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
+import { formatSpentBetweenUpdates } from "./src/lib/quota-delta.js";
 import { highestUsageSeverity } from "./src/domain/usage-views.js";
+import type { ProviderUsageResult } from "./src/domain/usage-types.js";
 import { keyDisplayStatus } from "./src/lib/resolve-key.js";
 import { buildQuotaOverview } from "./src/lib/quota-overview.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
@@ -170,9 +172,17 @@ async function refreshQuotaStatus(ctx: QuotaStatusContext): Promise<void> {
     return;
   }
 
+  const accountKey = providerName(account.provider, account.id);
+  const spent = formatSpentBetweenUpdates(lastQuota.get(accountKey), result);
+  lastQuota.set(accountKey, result);
+  const line = spent ? `${status} · ${spent}` : status;
+
   const color = highestUsageSeverity(result.items);
-  ctx.ui.setWidget("quotas", [ctx.ui.theme.fg(color, `◷ ${status}`)]);
+  ctx.ui.setWidget("quotas", [ctx.ui.theme.fg(color, `◷ ${line}`)]);
 }
+
+/** Last successful quota sample per account, used to show spend between updates. */
+const lastQuota = new Map<string, ProviderUsageResult>();
 
 /** Create an OAuth provider config for a specific account. */
 function createOauthProvider(accountId: string) {
