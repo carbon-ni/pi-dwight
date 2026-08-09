@@ -26,6 +26,13 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "max-lines": ["warn", { max: 400, skipBlankLines: true, skipComments: true }],
+      "max-statements": ["warn", { max: 80 }],
+      "no-empty": ["error", { allowEmptyCatch: false }],
     },
+  },
+  {
+    files: ["src/infra/commands.ts"],
+    rules: { "max-statements": "off" },
   },
 ];
