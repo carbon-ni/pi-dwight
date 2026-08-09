@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { providerAuthConfig } from "./provider-auth.js";
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 import type { ProviderTypeDef } from "../domain/providers.js";
 
 function provider(auth: ProviderTypeDef["auth"]): ProviderTypeDef {

@@ -1,7 +1,9 @@
-import { readConfig } from "../infra/config.js";
+interface VisibilityRules {
+  disabledProviders: string[];
+  disabledModels: Array<{ provider: string; model: string }>;
+}
 
-export function formatVisibilityRules(): string {
-  const config = readConfig();
+export function formatVisibilityRules(config: VisibilityRules): string {
   const lines: string[] = [];
 
   if (config.disabledProviders.length > 0) {

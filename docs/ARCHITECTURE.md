@@ -2,30 +2,24 @@
 
 ## Overview
 
-Pi extension that manages multiple OpenAI subscription accounts (ChatGPT Plus/Pro/Codex).
-Each account registers as a separate pi provider with its own OAuth credentials.
+Pi extension that manages multiple OAuth and API-key provider accounts.
+Each account registers as a separate Pi provider with its own credentials.
 
 ## Module Boundaries
 
 ```
 index.ts (entry)
-  ├── src/domain/providers.ts        Provider type definitions (pure data)
-  ├── src/domain/visibility.ts       Visibility filtering engine
-  │     └── src/infra/config.ts      Reads disabled models/providers
-  ├── src/lib/visibility-format.ts   Display formatting
-  │     └── src/infra/config.ts      Reads visibility state
-  ├── src/infra/config.ts            Config file persistence (accounts, aliases, visibility)
-  ├── src/infra/alias.ts             Alias CRUD (reads/writes via config)
-  │     └── src/infra/config.ts
-  └── src/infra/visibility-ui.ts     Interactive picker UI
-      └── src/infra/config.ts        Writes disabled models/providers
+  ├── src/domain/                     Account and provider concepts, visibility, usage parsing
+  ├── src/lib/                        Pure display formatting and quota calculations
+  │     └── src/domain/
+  └── src/infra/                      Persistence, provider wiring, commands, and picker flows
+        ├── src/domain/
+        └── src/lib/
 ```
 
-**Dependency direction**: `index → domain/lib/infra`. Domain depends on infra (config reads).
-No cross-dependencies between domain modules. No external deps in domain.
-
-**Dependency rule**: External SDK interaction isolated in `index.ts` (entry/infra layer).
-Business modules (`domain/*`, `lib/*`) have zero external deps.
+**Dependency direction**: `index → infra → lib → domain` and `index → domain`.
+Support modules are acyclic: domain does not import infra or lib, and lib does not import infra.
+External SDK interaction stays in `index.ts` and infrastructure modules.
 
 ## Key Design Decisions
 
@@ -60,9 +54,9 @@ User runs /multi-account add openai personal
     → index.ts registerAccountProvider() — registers with pi
 
 User runs /multi-account disable-model
-  → index.ts handler
+  → src/infra/commands.ts handler
     → src/infra/visibility-ui.ts disableModelWithPicker() — shows picker
       → src/infra/config.ts disableModel() — persists to JSON
-    → src/domain/visibility.ts applyVisibilityRules() — patches registry
-      → src/infra/config.ts filterVisibleModels() — reads disabled list
+    → index.ts refreshVisibility() reads config and passes visibility state
+      → src/domain/visibility.ts applyVisibilityRules() — patches registry
 ```

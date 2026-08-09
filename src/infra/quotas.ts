@@ -1,4 +1,4 @@
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 import type { ProviderUsageResult } from "../domain/usage-types.js";
 import { getProviderType } from "../domain/providers.js";
 

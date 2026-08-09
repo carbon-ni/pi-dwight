@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import type { Account } from "../domain/accounts.js";
 import {
   addAccount,
   findAccount,
@@ -10,7 +11,6 @@ import {
   removeAccount,
   setConfigDir,
   getConfigPath,
-  type Account,
 } from "./config.js";
 
 describe("config", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createQuotaOverviewWidget } from "./quota-overview-ui.js";
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 import type { ProviderUsageResult } from "../domain/usage-types.js";
 
 const mockAccount: Account = {

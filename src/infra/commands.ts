@@ -13,6 +13,7 @@ import {
   findAccount,
   getConfigPath,
   listAccounts,
+  readConfig,
   removeAccount,
 } from "../infra/config.js";
 import { addAlias, listAliases, removeAlias } from "../infra/alias.js";
@@ -220,7 +221,7 @@ export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccount
           break;
         }
         case "visibility": {
-          ctx.ui.notify(formatVisibilityRules(), "info");
+          ctx.ui.notify(formatVisibilityRules(readConfig()), "info");
           break;
         }
 

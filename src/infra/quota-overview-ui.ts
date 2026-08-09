@@ -1,6 +1,6 @@
 import { Container, Key, matchesKey, Text } from "@mariozechner/pi-tui";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 import type { ProviderUsageResult } from "../domain/usage-types.js";
 import { buildQuotaOverview, type QuotaOverviewItem } from "../lib/quota-overview.js";
 const QUOTA_OVERVIEW_SHORTCUTS = [Key.f6] as const;

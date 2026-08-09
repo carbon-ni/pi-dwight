@@ -3,7 +3,7 @@ import type {
   OAuthLoginCallbacks,
 } from "@mariozechner/pi-ai";
 import type { ProviderTypeDef } from "../domain/providers.js";
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 
 export interface ProviderOAuthConfig {
   name: string;

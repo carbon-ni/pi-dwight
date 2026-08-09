@@ -5,20 +5,8 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { Account } from "../domain/accounts.js";
 import { filterVisibleModels as filterVisibleModelsDomain } from "../domain/visibility.js";
-
-export interface Account {
-  /** Unique account identifier (used in provider name: {provider}-{id}) */
-  id: string;
-  /** Provider type key (e.g., "openai") */
-  provider: string;
-  /** API key or $ENV_VAR reference. Empty for OAuth-based providers. */
-  key: string;
-  /** Provider account ID required by its quota endpoint, when applicable. */
-  accountId?: string;
-  /** Pi provider name that owns credentials when it differs from `provider`. */
-  credentialProvider?: string;
-}
 
 export interface DisabledModel {
   provider: string;

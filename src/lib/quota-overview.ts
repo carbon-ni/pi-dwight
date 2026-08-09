@@ -1,4 +1,4 @@
-import type { Account } from "../infra/config.js";
+import type { Account } from "../domain/accounts.js";
 import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 import {
   formatUsageItem,

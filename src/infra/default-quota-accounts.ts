@@ -1,5 +1,5 @@
 import { getProviderType } from "../domain/providers.js";
-import type { Account } from "./config.js";
+import type { Account } from "../domain/accounts.js";
 
 interface AccountCredentialSource {
   getApiKey(provider: string): Promise<string | undefined>;
