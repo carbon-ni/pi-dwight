@@ -139,6 +139,29 @@ describe("applyVisibilityRules", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("calls onRegisterError when a provider cannot be overridden", async () => {
+    clearVisibilityBaseline();
+    const pi = {
+      registerProvider(_provider: string, _config: { models?: RegistryModel[] }) {
+        throw new Error("unexpected registration failure");
+      },
+    };
+    const errors: Array<{ provider: string; error: unknown }> = [];
+    const getFilter = () => noFilter;
+
+    await applyVisibilityRules(
+      pi,
+      makeRegistry([{ provider: "openrouter", id: "claude-sonnet" }]),
+      getFilter,
+      (provider, error) => errors.push({ provider, error }),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].provider).toBe("openrouter");
+    expect(errors[0].error).toBeInstanceOf(Error);
+    expect((errors[0].error as Error).message).toBe("unexpected registration failure");
+  });
+
   it("restores a provider from cached baseline after re-enabling", async () => {
     clearVisibilityBaseline();
     const pi = makePi();

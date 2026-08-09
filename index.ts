@@ -20,8 +20,8 @@
  * Provider names: {provider}-{id} (e.g., openai-personal, openai-work)
  */
 
-import { DynamicBorder, type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Container, Key, matchesKey, Text } from "@mariozechner/pi-tui";
+import { type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { Key } from "@mariozechner/pi-tui";
 
 const QUOTA_OVERVIEW_SHORTCUTS = [Key.f6] as const;
 import {
@@ -29,19 +29,13 @@ import {
   type OAuthLoginCallbacks,
 } from "@mariozechner/pi-ai";
 import {
-  addAccount,
   filterVisibleModels,
-  findAccount,
-  getConfigPath,
   listAccounts,
   readConfig,
-  removeAccount,
   setAccountQuotaAccountId,
 } from "./src/infra/config.js";
 import {
-  addAlias,
   listAliases,
-  removeAlias,
 } from "./src/infra/alias.js";
 import { getProviderType, getProviderTypeNames } from "./src/domain/providers.js";
 import { modelsForAccountProvider } from "./src/domain/inherited-models.js";
@@ -52,24 +46,16 @@ import {
   type RegistryModel,
   type VisibilityFilter,
 } from "./src/domain/visibility.js";
-import {
-  disableModelWithPicker,
-  disableProviderWithPicker,
-  enableModelWithPicker,
-  enableProviderWithPicker,
-} from "./src/infra/visibility-ui.js";
-import { addAliasWithPicker, type AliasPickerUi } from "./src/infra/alias-ui.js";
 import { hasExplicitModelArgument } from "./src/infra/cli.js";
 import { applyProjectDefaultModel } from "./src/infra/project-default-model.js";
 import { readProjectDefaults } from "./src/infra/project-config.js";
-import { formatVisibilityRules } from "./src/lib/visibility-format.js";
-import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quotas.js";
+import { fetchMultiAccountQuota } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
 import { computeQuotaDelta } from "./src/lib/quota-delta.js";
 import { highestUsageSeverity } from "./src/domain/usage-views.js";
 import type { ProviderUsageResult } from "./src/domain/usage-types.js";
-import { keyDisplayStatus } from "./src/lib/resolve-key.js";
-import { buildQuotaOverview } from "./src/lib/quota-overview.js";
+import { createQuotaOverviewWidget } from "./src/infra/quota-overview-ui.js";
+import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
 
@@ -125,10 +111,6 @@ async function loadOpenaiOauth() {
 
 function providerName(provider: string, id: string): string {
   return `${provider}-${id}`;
-}
-
-async function getAvailableModels(ctx: { modelRegistry: ModelRegistryReader }): Promise<RegistryModel[]> {
-  return await ctx.modelRegistry.getAvailable();
 }
 
 function getVisibilityFilter(): VisibilityFilter {
@@ -307,6 +289,9 @@ export default function (pi: ExtensionAPI) {
       pi as unknown as ProviderRegistrar,
       registry,
       getVisibilityFilter,
+      (provider, error) => {
+        console.debug(`[multi-account] visibility: registerProvider failed for ${provider}`, error instanceof Error ? error.message : error);
+      },
     );
 
     if (hasExplicitModelArgument(process.argv)) return;
@@ -345,69 +330,13 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-      const panel = new Container();
-      let closed = false;
+    const { fetchMultiAccountQuotas } = await import("./src/infra/quotas.js");
+    const { buildQuotaOverview } = await import("./src/lib/quota-overview.js");
 
-      const addFrame = () => {
-        panel.addChild(new DynamicBorder((text: string) => theme.fg("accent", text)));
-        panel.addChild(new Text(theme.fg("accent", theme.bold("Account quotas")), 1, 0));
-      };
-      const addCloseHint = () => {
-        panel.addChild(new Text(
-          theme.fg("dim", "F6, Esc, or Enter to close"),
-          1,
-          0,
-        ));
-        panel.addChild(new DynamicBorder((text: string) => theme.fg("accent", text)));
-      };
-      const showLoading = () => {
-        addFrame();
-        panel.addChild(new Text(theme.fg("dim", "Loading account quotas…"), 1, 0));
-        addCloseHint();
-      };
-      const showOverview = (overview: ReturnType<typeof buildQuotaOverview>) => {
-        panel.clear();
-        addFrame();
-        for (const item of overview) {
-          panel.addChild(new Text(
-            `${theme.bold(item.account)}  ${theme.fg(item.severity, item.status)}`,
-            1,
-            0,
-          ));
-        }
-        addCloseHint();
-      };
-
-      showLoading();
-      void fetchMultiAccountQuotas(credentials, accounts)
-        .then((results) => {
-          if (closed) return;
-          showOverview(buildQuotaOverview(results));
-          tui.requestRender();
-        })
-        .catch((error: unknown) => {
-          if (closed) return;
-          showOverview([{ account: "Quota loading failed", status: error instanceof Error ? error.message : "Unknown error", severity: "error" }]);
-          tui.requestRender();
-        });
-
-      return {
-        render: (width: number) => panel.render(width),
-        invalidate: () => panel.invalidate(),
-        handleInput: (data: string) => {
-          if (
-            QUOTA_OVERVIEW_SHORTCUTS.some((shortcut) => matchesKey(data, shortcut))
-            || matchesKey(data, Key.escape)
-            || matchesKey(data, Key.enter)
-          ) {
-            closed = true;
-            done();
-          }
-          tui.requestRender();
-        },
-      };
-    }, {
+    await ctx.ui.custom<void>(createQuotaOverviewWidget(
+      () => fetchMultiAccountQuotas(credentials, accounts),
+      buildQuotaOverview,
+    ), {
       overlay: true,
       overlayOptions: { anchor: "top-right", width: "45%", minWidth: 42, maxHeight: "70%", margin: 1 },
     });
@@ -421,309 +350,11 @@ export default function (pi: ExtensionAPI) {
   }
 
   // ── /multi-account <subcommand> ──
-  pi.registerCommand("multi-account", {
-    description: "Manage multi-account providers (OpenAI subscriptions)",
-    getArgumentCompletions: (prefix) => {
-      const subcommands = [
-        "add",
-        "list",
-        "remove",
-        "show",
-        "quotas",
-        "disable-provider",
-        "enable-provider",
-        "disable-model",
-        "enable-model",
-        "visibility",
-        "alias-add",
-        "alias-remove",
-        "alias-list",
-      ];
-      const matching = subcommands.filter((s) => s.startsWith(prefix));
-      if (matching.length > 0) {
-        return matching.map((s) => ({ value: s, label: s }));
-      }
-      return null;
-    },
-    handler: async (args, ctx) => {
-      const parts = (args ?? "").trim().split(/\s+/);
-      const sub = parts[0];
-
-      if (!sub) {
-        ctx.ui.notify(
-          "Usage: /multi-account <add|list|remove|show> [...]",
-          "warning",
-        );
-        return;
-      }
-
-      switch (sub) {
-        case "add": {
-          const provider = parts[1];
-          const id = parts[2];
-
-          if (!provider || !id) {
-            ctx.ui.notify(
-              "Usage: /multi-account add <provider> <id>\n" +
-                "Example: /multi-account add openai personal\n\n" +
-                "After adding, run /login to authenticate.",
-              "warning",
-            );
-            return;
-          }
-
-          const typeDef = getProviderType(provider);
-          if (!typeDef) {
-            ctx.ui.notify(
-              `Unknown provider "${provider}". Available: ${getProviderTypeNames().join(", ")}`,
-              "error",
-            );
-            return;
-          }
-
-          // For API-key providers, store the key or $ENV_VAR reference.
-          if (typeDef.auth === "apikey") {
-            const key = parts[3];
-            if (!key) {
-              ctx.ui.notify(
-                `Usage: /multi-account add ${provider} <id> <$ENV_VAR|api-key>\n` +
-                  `Examples:\n` +
-                  `  /multi-account add zai personal $ZAI_API_KEY\n` +
-                  `  /multi-account add zai work $ZAI_WORK_KEY`,
-                "warning",
-              );
-              return;
-            }
-            addAccount({ id, provider, key });
-            registerAccountProvider(pi, id, provider);
-            const name = providerName(provider, id);
-            ctx.ui.notify(`Account "${name}" registered.`, "info");
-            break;
-          }
-
-          // OAuth providers
-          addAccount({ id, provider, key: "" });
-          registerAccountProvider(pi, id, provider);
-
-          const name = providerName(provider, id);
-          ctx.ui.notify(
-            `Account "${name}" registered.\nRun /login to authenticate.`,
-            "info",
-          );
-          break;
-        }
-
-        case "list": {
-          const accounts = listAccounts();
-          if (accounts.length === 0) {
-            ctx.ui.notify("No accounts configured.", "info");
-            return;
-          }
-
-          const lines = accounts.map((a) => {
-            const name = providerName(a.provider, a.id);
-            const typeDef = getProviderType(a.provider);
-            return `  ${name} (${typeDef?.name ?? a.provider})`;
-          });
-
-          ctx.ui.notify(
-            `Accounts (${getConfigPath()}):\n${lines.join("\n")}`,
-            "info",
-          );
-          break;
-        }
-
-        case "remove": {
-          const provider = parts[1];
-          const id = parts[2];
-
-          if (!provider || !id) {
-            ctx.ui.notify(
-              "Usage: /multi-account remove <provider> <id>",
-              "warning",
-            );
-            return;
-          }
-
-          const existing = findAccount(provider, id);
-          if (!existing) {
-            ctx.ui.notify(
-              `Account "${providerName(provider, id)}" not found.`,
-              "error",
-            );
-            return;
-          }
-
-          const name = providerName(provider, id);
-          const ok = await ctx.ui.confirm(
-            "Remove account?",
-            `Remove "${name}"? OAuth credentials will remain in auth storage.`,
-          );
-          if (!ok) {
-            ctx.ui.notify("Cancelled.", "info");
-            return;
-          }
-
-          removeAccount(provider, id);
-          pi.unregisterProvider(name);
-
-          ctx.ui.notify(
-            `Account "${name}" removed. OAuth tokens remain in ~/.pi/agent/auth.json`,
-            "info",
-          );
-          break;
-        }
-
-        case "disable-provider": {
-          const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
-          const changed = await disableProviderWithPicker(ctx.ui, await getAvailableModels(modelCtx));
-          if (changed) await refreshVisibility(pi, modelCtx);
-          break;
-        }
-
-        case "enable-provider": {
-          const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
-          const changed = await enableProviderWithPicker(ctx.ui);
-          if (changed) await refreshVisibility(pi, modelCtx);
-          break;
-        }
-
-        case "disable-model": {
-          const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
-          const changed = await disableModelWithPicker(ctx.ui, await getAvailableModels(modelCtx));
-          if (changed) await refreshVisibility(pi, modelCtx);
-          break;
-        }
-
-        case "enable-model": {
-          const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
-          const changed = await enableModelWithPicker(ctx.ui);
-          if (changed) await refreshVisibility(pi, modelCtx);
-          break;
-        }
-
-        case "visibility": {
-          ctx.ui.notify(formatVisibilityRules(), "info");
-          break;
-        }
-
-        case "quotas": {
-          await showQuotaOverview(ctx);
-          return;
-        }
-
-        case "show": {
-          const provider = parts[1];
-          const id = parts[2];
-
-          if (!provider || !id) {
-            ctx.ui.notify(
-              "Usage: /multi-account show <provider> <id>",
-              "warning",
-            );
-            return;
-          }
-
-          const account = findAccount(provider, id);
-          if (!account) {
-            ctx.ui.notify(
-              `Account "${providerName(provider, id)}" not found.`,
-              "error",
-            );
-            return;
-          }
-
-          const typeDef = getProviderType(account.provider);
-          const authLine = typeDef?.auth === "apikey"
-            ? `Auth: ${keyDisplayStatus(account.key)}`
-            : "Auth: /login to authenticate";
-          ctx.ui.notify(
-            [
-              `Account: ${providerName(account.provider, account.id)}`,
-              `Provider: ${typeDef?.name ?? account.provider}`,
-              authLine,
-            ].join("\n"),
-            "info",
-          );
-          break;
-        }
-
-        case "alias-add": {
-          const name = parts[1];
-          const provider = parts[2];
-          const model = parts[3];
-
-          // No args → picker flow
-          if (!name) {
-            const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
-            const models = await getAvailableModels(modelCtx);
-            const result = await addAliasWithPicker(
-              ctx.ui as unknown as AliasPickerUi,
-              models.map((m: RegistryModel) => ({ provider: m.provider, id: m.id })),
-            );
-            if (result) {
-              registerAliasProvider(pi, result);
-            }
-            return;
-          }
-
-          // CLI flow with args
-          if (!provider || !model) {
-            ctx.ui.notify(
-              "Usage: /multi-account alias-add <name> <provider> <model>\n" +
-                "Or: /multi-account alias-add (interactive picker)\n" +
-                "Example: /multi-account alias-add my-fav openai-personal gpt-5.5\n" +
-                "Then use: pi --model a/my-fav",
-              "warning",
-            );
-            return;
-          }
-
-          addAlias({ name, provider, model });
-          registerAliasProvider(pi, { name, provider, model });
-          ctx.ui.notify(
-            `Alias "a/${name}" → ${provider}/${model} registered.\nUse: pi --model a/${name}`,
-            "info",
-          );
-          break;
-        }
-
-        case "alias-remove": {
-          const name = parts[1];
-          if (!name) {
-            ctx.ui.notify(
-              "Usage: /multi-account alias-remove <name>",
-              "warning",
-            );
-            return;
-          }
-
-          if (removeAlias(name)) {
-            pi.unregisterProvider(`a/${name}`);
-            ctx.ui.notify(`Alias "a/${name}" removed.`, "info");
-          } else {
-            ctx.ui.notify(`Alias "${name}" not found.`, "error");
-          }
-          break;
-        }
-
-        case "alias-list": {
-          const aliases = listAliases();
-          if (aliases.length === 0) {
-            ctx.ui.notify("No aliases configured. Use /multi-account alias-add ...", "info");
-            return;
-          }
-          const lines = aliases.map((a) => `  a/${a.name} → ${a.provider}/${a.model}`);
-          ctx.ui.notify(`Aliases:\n${lines.join("\n")}`, "info");
-          break;
-        }
-
-        default:
-          ctx.ui.notify(
-            `Unknown subcommand "${sub}". Use: add, list, remove, show, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
-            "error",
-          );
-      }
-    },
+  registerMultiAccountCommand(pi, {
+    registerAccountProvider,
+    registerAliasProvider,
+    refreshVisibility,
+    showQuotaOverview,
+    catalogModels: [],
   });
 }

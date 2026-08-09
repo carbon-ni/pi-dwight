@@ -101,6 +101,7 @@ export async function applyVisibilityRules(
   pi: ProviderRegistrar,
   modelRegistry: ModelRegistryReader,
   getFilter: () => VisibilityFilter,
+  onRegisterError?: (provider: string, error: unknown) => void,
 ): Promise<void> {
   installVisibilityFilter(modelRegistry, getFilter);
   const models =
@@ -117,10 +118,14 @@ export async function applyVisibilityRules(
       pi.registerProvider(provider, {
         models: filterVisibleModels(provider, providerModels, currentFilter),
       });
-    } catch {
-      // Some built-in providers require provider metadata (e.g. baseUrl) when
-      // overriding models. Keep command flow alive; unsupported providers can
-      // be reported by runtime verification instead of crashing the extension.
+    } catch (error: unknown) {
+      // Some built-in providers require metadata (e.g. baseUrl) when
+      // overriding models. Surface unknown errors via the callback
+      // so callers can decide whether to log or ignore. Known metadata
+      // errors from Pi's registerProvider are safe to discard silently.
+      if (onRegisterError) {
+        onRegisterError(provider, error);
+      }
     }
   }
 }
