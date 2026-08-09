@@ -75,6 +75,36 @@ describe("createQuotaOverviewWidget", () => {
     expect(tui.requestRender).toHaveBeenCalled();
   });
 
+  it("adds a use-first marker without changing quota details", async () => {
+    const buildFn = vi.fn(() => [
+      {
+        account: "openai-personal",
+        status: "5h [█████░░░░░] 50% (1d)",
+        severity: "warning" as const,
+        priority: "50% left / 24h = 2.08%/h",
+        recommended: true as const,
+      },
+    ]);
+    widget = createQuotaOverviewWidget(
+      () => Promise.resolve([{ account: mockAccount, result: successResult }]),
+      buildFn,
+    );
+    const tui = { requestRender: vi.fn() };
+    const theme = {
+      fg: vi.fn((_c: string, text: string) => text),
+      bold: vi.fn((text: string) => text),
+      dim: vi.fn((text: string) => text),
+    };
+
+    widget(tui as never, theme, vi.fn(), vi.fn());
+
+    await vi.waitFor(() => {
+      expect(theme.fg).toHaveBeenCalledWith("accent", "★ use first");
+      expect(theme.fg).toHaveBeenCalledWith("dim", "50% left / 24h = 2.08%/h");
+      expect(theme.fg).toHaveBeenCalledWith("warning", "5h [█████░░░░░] 50% (1d)");
+    });
+  });
+
   it("shows error when fetch fails", async () => {
     const fetchFn = vi.fn(() =>
       Promise.reject(new Error("boom")),

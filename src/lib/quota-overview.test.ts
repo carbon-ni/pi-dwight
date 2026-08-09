@@ -19,9 +19,54 @@ describe("buildQuotaOverview", () => {
         },
       },
     ], new Date("2026-04-14T12:00:00Z"))).toEqual([
-      { account: "openai-personal", status: "5h [███░░░░░░░] 25% (1d)", severity: "success" },
-      { account: "zai-work", status: "5h [█████████░] 90% (1h)", severity: "error" },
+      { account: "openai-personal", status: "5h [███░░░░░░░] 25% (1d)", severity: "success", priority: "75% left / 24h = 3.13%/h" },
+      { account: "zai-work", status: "5h [█████████░] 90% (1h)", severity: "error", priority: "10% left / 1h = 10%/h", recommended: true },
     ]);
+  });
+
+  it("recommends the account whose remaining quota expires fastest", () => {
+    expect(buildQuotaOverview([
+      {
+        account: { provider: "openai", id: "weekly", key: "" },
+        result: {
+          success: true,
+          items: [{ kind: "quota", label: "Weekly", usedPercent: 20, resetsAt: new Date("2026-04-21T12:00:00Z") }],
+        },
+      },
+      {
+        account: { provider: "openai", id: "daily", key: "" },
+        result: {
+          success: true,
+          items: [{ kind: "quota", label: "Daily", usedPercent: 50, resetsAt: new Date("2026-04-15T12:00:00Z") }],
+        },
+      },
+    ], new Date("2026-04-14T12:00:00Z"))).toEqual([
+      { account: "openai-daily", status: "Daily [█████░░░░░] 50% (1d)", severity: "success", priority: "50% left / 24h = 2.08%/h", recommended: true },
+      { account: "openai-weekly", status: "Weekly [██░░░░░░░░] 20% (7d)", severity: "success", priority: "80% left / 168h = 0.48%/h" },
+    ]);
+  });
+
+  it("does not recommend exhausted, balance-only, or failed accounts", () => {
+    expect(buildQuotaOverview([
+      {
+        account: { provider: "openai", id: "exhausted", key: "" },
+        result: {
+          success: true,
+          items: [{ kind: "quota", label: "Daily", usedPercent: 100, resetsAt: new Date("2026-04-15T12:00:00Z") }],
+        },
+      },
+      {
+        account: { provider: "deepseek", id: "balance", key: "" },
+        result: {
+          success: true,
+          items: [{ kind: "balance", label: "Balance $10.00", amount: 10, currency: "USD" }],
+        },
+      },
+      {
+        account: { provider: "anthropic", id: "failed", key: "" },
+        result: { success: false, error: "Unavailable" },
+      },
+    ], new Date("2026-04-14T12:00:00Z")).some((item) => item.recommended)).toBe(false);
   });
 
   it("clamps quota bars to the available range", () => {

@@ -40,8 +40,14 @@ export function createQuotaOverviewWidget(
       panel.clear();
       addFrame();
       for (const item of overview) {
+        const recommendation = item.recommended
+          ? `  ${theme.fg("accent", "★ use first")}`
+          : "";
+        const priority = item.priority
+          ? `  ${theme.fg("dim", item.priority)}`
+          : "";
         panel.addChild(new Text(
-          `${theme.bold(item.account)}  ${theme.fg(item.severity, item.status)}`,
+          `${theme.bold(item.account)}  ${theme.fg(item.severity, item.status)}${recommendation}${priority}`,
           1,
           0,
         ));
