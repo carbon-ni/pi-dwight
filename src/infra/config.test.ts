@@ -11,6 +11,8 @@ import {
   removeAccount,
   setConfigDir,
   getConfigPath,
+  readConfig,
+  writeConfig,
 } from "./config.js";
 
 describe("config", () => {
@@ -43,6 +45,31 @@ describe("config", () => {
 
     it("removeAccount returns false", () => {
       expect(removeAccount("openai", "nonexistent")).toBe(false);
+    });
+  });
+
+  describe("fallback groups", () => {
+    it("persists explicit equivalent model routes", () => {
+      writeConfig({
+        accounts: [],
+        disabledProviders: [],
+        disabledModels: [],
+        fallbackGroups: [{
+          name: "coding-high",
+          models: [
+            { provider: "openai-personal", model: "gpt-5.4" },
+            { provider: "anthropic-work", model: "claude-opus-4-6" },
+          ],
+        }],
+      });
+
+      expect(readConfig().fallbackGroups).toEqual([{
+        name: "coding-high",
+        models: [
+          { provider: "openai-personal", model: "gpt-5.4" },
+          { provider: "anthropic-work", model: "claude-opus-4-6" },
+        ],
+      }]);
     });
   });
 

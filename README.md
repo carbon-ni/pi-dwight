@@ -37,6 +37,29 @@ Provider names follow the pattern `{provider}-{id}` (e.g., `openai-personal`, `o
 
 Run `/multi-account quotas` or press `F6` to open a compact popup immediately while it fetches every configured account concurrently. Press `F6`, `Esc`, or `Enter` to close it. Failed or unsupported quota lookups remain visible with the returned error.
 
+### Automatic rate-limit fallback
+
+When active account returns HTTP `429`, Dwight keeps same model and switches to account whose remaining quota expires fastest. Accounts already rate-limited during current agent run are skipped, preventing loops.
+
+Cross-model or cross-provider switching only happens inside explicit equivalence groups in `~/.pi/agent/multi-account.json`:
+
+```json
+{
+  "fallbackGroups": [
+    {
+      "name": "coding-high",
+      "models": [
+        { "provider": "openai-personal", "model": "gpt-5.4" },
+        { "provider": "openai-work", "model": "gpt-5.4" },
+        { "provider": "anthropic-personal", "model": "claude-opus-4-6" }
+      ]
+    }
+  ]
+}
+```
+
+Only put equivalent quality levels in same group. Quota pressure chooses best usable account; listed order breaks ties. Exhausted, unavailable, unauthenticated, and already rate-limited routes are skipped. Without matching group, Dwight never changes model family automatically.
+
 ### Aliases
 
 Short names that point to any provider + model. No validation — just name it and use it.

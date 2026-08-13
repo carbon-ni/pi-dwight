@@ -49,7 +49,7 @@ import {
 import { hasExplicitModelArgument } from "./src/infra/cli.js";
 import { applyProjectDefaultModel } from "./src/infra/project-default-model.js";
 import { readProjectDefaults } from "./src/infra/project-config.js";
-import { fetchMultiAccountQuota } from "./src/infra/quotas.js";
+import { fetchMultiAccountQuota, fetchMultiAccountQuotas } from "./src/infra/quotas.js";
 import { findAccountForProvider, formatQuotaStatus } from "./src/lib/quota-status.js";
 import { computeQuotaDelta } from "./src/lib/quota-delta.js";
 import { highestUsageSeverity } from "./src/domain/usage-views.js";
@@ -58,6 +58,7 @@ import { createQuotaOverviewWidget } from "./src/infra/quota-overview-ui.js";
 import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
+import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -275,6 +276,9 @@ function findAccountByProviderName(providerName: string) {
 }
 
 export default function (pi: ExtensionAPI) {
+  const rateLimitedProviders = new Set<string>();
+  let requestModel: { provider: string; id: string } | undefined;
+
   // Load all accounts on startup
   registerAllAccounts(pi);
   registerAllAliases(pi);
@@ -307,6 +311,47 @@ export default function (pi: ExtensionAPI) {
     if (applied) {
       ctx.ui.notify(`Dwight project default model: ${applied.provider}/${applied.model}`, "info");
     }
+  });
+
+  pi.on("before_agent_start", () => {
+    rateLimitedProviders.clear();
+  });
+
+  pi.on("before_provider_request", (_event, ctx) => {
+    requestModel = ctx.model ? { provider: ctx.model.provider, id: ctx.model.id } : undefined;
+  });
+
+  pi.on("after_provider_response", async (event, ctx) => {
+    const failedModel = requestModel;
+    if (event.status !== 429 || !failedModel) return;
+    if (rateLimitedProviders.has(failedModel.provider)) return;
+    rateLimitedProviders.add(failedModel.provider);
+
+    const credentials = {
+      getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider),
+    };
+    const accounts = [
+      ...listAccounts(),
+      ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
+    ];
+    const result = await failoverRateLimitedModel({
+      currentModel: failedModel,
+      accounts,
+      fallbackGroups: readConfig().fallbackGroups,
+      blockedProviders: rateLimitedProviders,
+      readQuotas: (candidates) => fetchMultiAccountQuotas(credentials, candidates),
+      findModel: (provider, model) => ctx.modelRegistry.find(provider, model),
+      setModel: (model) => pi.setModel(model),
+    });
+
+    if (!result) {
+      ctx.ui.notify(`No usable fallback for ${failedModel.provider}/${failedModel.id}`, "warning");
+      return;
+    }
+    ctx.ui.notify(
+      `Rate limit reached: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
+      "warning",
+    );
   });
 
   pi.on("model_select", async (_event, ctx) => {

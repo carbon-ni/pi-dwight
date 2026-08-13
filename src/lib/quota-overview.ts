@@ -1,6 +1,11 @@
 import type { Account } from "../domain/accounts.js";
 import type { ProviderUsageResult, UsageItem } from "../domain/usage-types.js";
 import {
+  quotaPriority,
+  rankQuotaAccounts,
+  type QuotaPriority,
+} from "../domain/account-priority.js";
+import {
   formatUsageItem,
   highestUsageSeverity,
 } from "../domain/usage-views.js";
@@ -42,32 +47,6 @@ function compareAccounts(left: QuotaOverviewInput, right: QuotaOverviewInput): n
   return left.account.id.localeCompare(right.account.id);
 }
 
-interface QuotaPriority {
-  remaining: number;
-  hoursToReset: number;
-  pressure: number;
-}
-
-/** Remaining percentage points that expire per hour. Higher means use sooner. */
-function quotaPriority(result: ProviderUsageResult, now: Date): QuotaPriority | undefined {
-  if (!result.success) return undefined;
-
-  const quotas = meaningful(result.items, now).filter(
-    (item): item is Extract<UsageItem, { kind: "quota" }> =>
-      item.kind === "quota" && item.resetsAt.getTime() > now.getTime(),
-  );
-  if (quotas.length === 0 || quotas.some((item) => item.usedPercent >= 100)) return undefined;
-
-  let highest: QuotaPriority | undefined;
-  for (const item of quotas) {
-    const remaining = Math.max(0, 100 - item.usedPercent);
-    const hoursToReset = (item.resetsAt.getTime() - now.getTime()) / 3_600_000;
-    const priority = { remaining, hoursToReset, pressure: remaining / hoursToReset };
-    if (!highest || priority.pressure > highest.pressure) highest = priority;
-  }
-  return highest;
-}
-
 function formatPriority(priority: QuotaPriority): string {
   const remaining = Number(priority.remaining.toFixed(2));
   const hours = Number(priority.hoursToReset.toFixed(2));
@@ -84,16 +63,11 @@ export function buildQuotaOverview(
     .filter(({ result }) => !result.success || meaningful(result.items, now).length > 0);
 
   const priorities = new Map<QuotaOverviewInput, QuotaPriority>();
-  let recommended: QuotaOverviewInput | undefined;
-  let highestPressure = -1;
   for (const entry of visibleEntries) {
     const priority = quotaPriority(entry.result, now);
-    if (!priority) continue;
-    priorities.set(entry, priority);
-    if (priority.pressure <= highestPressure) continue;
-    recommended = entry;
-    highestPressure = priority.pressure;
+    if (priority) priorities.set(entry, priority);
   }
+  const recommended = rankQuotaAccounts(visibleEntries, now)[0];
 
   return visibleEntries.map((entry) => {
     const { account, result } = entry;

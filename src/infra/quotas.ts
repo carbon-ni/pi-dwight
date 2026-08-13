@@ -1,4 +1,4 @@
-import type { Account } from "../domain/accounts.js";
+import { accountProviderName, type Account } from "../domain/accounts.js";
 import type { ProviderUsageResult } from "../domain/usage-types.js";
 import { getProviderType } from "../domain/providers.js";
 
@@ -16,12 +16,6 @@ interface AccountCredentialSource {
   getApiKey(provider: string): Promise<string | undefined>;
 }
 
-function credentialProviderName(account: Account): string {
-  if (account.credentialProvider) return account.credentialProvider;
-  if (account.id === "default") return account.provider;
-  return `${account.provider}-${account.id}`;
-}
-
 export async function fetchMultiAccountQuota(
   authStorage: AccountCredentialSource,
   account: Account,
@@ -32,10 +26,11 @@ export async function fetchMultiAccountQuota(
   if (!plugin) {
     return { success: false, error: `Quota fetching is not supported for ${account.provider}` };
   }
-  const apiKey = await authStorage.getApiKey(credentialProviderName(account));
+  const provider = accountProviderName(account);
+  const apiKey = await authStorage.getApiKey(provider);
   return plugin.fetch(apiKey, {
     accountId: account.accountId,
-    credentialProvider: credentialProviderName(account),
+    credentialProvider: provider,
     fetcher,
   });
 }
