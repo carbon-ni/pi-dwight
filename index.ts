@@ -58,7 +58,7 @@ import { createQuotaOverviewWidget } from "./src/infra/quota-overview-ui.js";
 import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
-import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
+import { failoverRateLimitedModel, isUsageLimitError } from "./src/infra/model-failover.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -277,7 +277,10 @@ function findAccountByProviderName(providerName: string) {
 
 export default function (pi: ExtensionAPI) {
   const rateLimitedProviders = new Set<string>();
-  let requestModel: { provider: string; id: string } | undefined;
+  let pendingHandoff: {
+    bridge: { provider: string; model: string };
+    target: { provider: string; model: string };
+  } | undefined;
 
   // Load all accounts on startup
   registerAllAccounts(pi);
@@ -317,13 +320,10 @@ export default function (pi: ExtensionAPI) {
     rateLimitedProviders.clear();
   });
 
-  pi.on("before_provider_request", (_event, ctx) => {
-    requestModel = ctx.model ? { provider: ctx.model.provider, id: ctx.model.id } : undefined;
-  });
-
-  pi.on("after_provider_response", async (event, ctx) => {
-    const failedModel = requestModel;
-    if (event.status !== 429 || !failedModel) return;
+  const failoverFrom = async (
+    failedModel: { provider: string; id: string },
+    ctx: ExtensionContext,
+  ): Promise<void> => {
     if (rateLimitedProviders.has(failedModel.provider)) return;
     rateLimitedProviders.add(failedModel.provider);
 
@@ -334,11 +334,16 @@ export default function (pi: ExtensionAPI) {
       ...listAccounts(),
       ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
     ];
-    const result = await failoverRateLimitedModel({
+    const config = readConfig();
+    const contextPolicy = config.fallback?.contextPolicy ?? "fit-only";
+    const result = await failoverRateLimitedModel<NonNullable<ExtensionContext["model"]>>({
       currentModel: failedModel,
       accounts,
-      fallbackGroups: readConfig().fallbackGroups,
+      fallbackGroups: config.fallbackGroups,
+      bridgeModels: contextPolicy === "compact" ? config.fallback?.summarizerModels : undefined,
       blockedProviders: rateLimitedProviders,
+      currentContextTokens: ctx.getContextUsage()?.tokens ?? undefined,
+      contextReservePercent: config.fallback?.contextReservePercent,
       readQuotas: (candidates) => fetchMultiAccountQuotas(credentials, candidates),
       findModel: (provider, model) => ctx.modelRegistry.find(provider, model),
       setModel: (model) => pi.setModel(model),
@@ -349,9 +354,72 @@ export default function (pi: ExtensionAPI) {
       return;
     }
     ctx.ui.notify(
-      `Rate limit reached: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
+      `Usage limit reached: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
       "warning",
     );
+    if (!result.handoffTarget || contextPolicy !== "compact") return;
+
+    pendingHandoff = {
+      bridge: { provider: result.to, model: result.model },
+      target: result.handoffTarget,
+    };
+    ctx.ui.notify(
+      `Bridge selected; will compact then switch to ${result.handoffTarget.provider}/${result.handoffTarget.model}`,
+      "info",
+    );
+  };
+
+  const compactAndHandoff = (
+    ctx: ExtensionContext,
+    handoff: NonNullable<typeof pendingHandoff>,
+  ): void => {
+    ctx.ui.notify(`Compacting with ${handoff.bridge.provider}/${handoff.bridge.model} before handoff`, "info");
+    ctx.compact({
+      customInstructions: `Prepare a concise continuation summary for ${handoff.target.provider}/${handoff.target.model}. Preserve active task, decisions, modified files, commands, failures, and next steps.`,
+      onComplete: () => {
+        void (async () => {
+          const target = ctx.modelRegistry.find(handoff.target.provider, handoff.target.model);
+          if (!target) {
+            ctx.ui.notify(`Handoff target unavailable: ${handoff.target.provider}/${handoff.target.model}`, "warning");
+            return;
+          }
+
+          const reserve = readConfig().fallback?.contextReservePercent ?? 15;
+          const tokens = ctx.getContextUsage()?.tokens;
+          if (tokens != null && target.contextWindow < tokens * (1 + reserve / 100)) {
+            ctx.ui.notify(`Compacted context still does not fit ${handoff.target.provider}/${handoff.target.model}`, "warning");
+            return;
+          }
+
+          if (!await pi.setModel(target)) {
+            ctx.ui.notify(`No credentials for handoff target ${handoff.target.provider}/${handoff.target.model}`, "warning");
+            return;
+          }
+          ctx.ui.notify(`Handoff complete: ${handoff.target.provider}/${handoff.target.model}`, "info");
+        })();
+      },
+      onError: (error: Error) => {
+        ctx.ui.notify(`Handoff compaction failed: ${error.message}`, "warning");
+      },
+    });
+  };
+
+  pi.on("agent_end", async (event, ctx) => {
+    const assistant = [...event.messages].reverse().find((message) => message.role === "assistant");
+    if (!assistant || assistant.role !== "assistant") return;
+
+    if (pendingHandoff &&
+      assistant.provider === pendingHandoff.bridge.provider &&
+      assistant.model === pendingHandoff.bridge.model &&
+      assistant.stopReason !== "error") {
+      const handoff = pendingHandoff;
+      pendingHandoff = undefined;
+      compactAndHandoff(ctx, handoff);
+      return;
+    }
+    if (assistant.stopReason !== "error" || !isUsageLimitError(assistant.errorMessage)) return;
+
+    await failoverFrom({ provider: assistant.provider, id: assistant.model }, ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {

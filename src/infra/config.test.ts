@@ -61,15 +61,27 @@ describe("config", () => {
             { provider: "anthropic-work", model: "claude-opus-4-6" },
           ],
         }],
+        fallback: {
+          contextPolicy: "compact",
+          contextReservePercent: 15,
+          summarizerModels: [{ provider: "openrouter", model: "deepseek/deepseek-v4-pro" }],
+        },
       });
 
-      expect(readConfig().fallbackGroups).toEqual([{
-        name: "coding-high",
-        models: [
-          { provider: "openai-personal", model: "gpt-5.4" },
-          { provider: "anthropic-work", model: "claude-opus-4-6" },
-        ],
-      }]);
+      expect(readConfig()).toMatchObject({
+        fallbackGroups: [{
+          name: "coding-high",
+          models: [
+            { provider: "openai-personal", model: "gpt-5.4" },
+            { provider: "anthropic-work", model: "claude-opus-4-6" },
+          ],
+        }],
+        fallback: {
+          contextPolicy: "compact",
+          contextReservePercent: 15,
+          summarizerModels: [{ provider: "openrouter", model: "deepseek/deepseek-v4-pro" }],
+        },
+      });
     });
   });
 

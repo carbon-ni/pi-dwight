@@ -10,6 +10,13 @@ export interface FallbackGroup {
   models: FallbackModel[];
 }
 
+export interface FallbackSettings {
+  contextPolicy?: "fit-only" | "compact";
+  contextReservePercent?: number;
+  /** Large-context routes allowed to bridge and summarize before smaller-model handoff. */
+  summarizerModels?: FallbackModel[];
+}
+
 /** Account registered as a distinct Pi provider. */
 export interface Account {
   /** Unique account identifier used in provider name: {provider}-{id}. */

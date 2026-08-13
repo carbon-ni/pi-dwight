@@ -60,6 +60,25 @@ Cross-model or cross-provider switching only happens inside explicit equivalence
 
 Only put equivalent quality levels in same group. Quota pressure chooses best usable account; listed order breaks ties. Exhausted, unavailable, unauthenticated, and already rate-limited routes are skipped. Without matching group, Dwight never changes model family automatically.
 
+For sessions larger than preferred fallback model, configure context-aware handoff:
+
+```json
+{
+  "fallback": {
+    "contextPolicy": "compact",
+    "contextReservePercent": 15,
+    "summarizerModels": [
+      { "provider": "deepseek", "model": "deepseek-v4-pro" },
+      { "provider": "openrouter", "model": "deepseek/deepseek-v4-pro" }
+    ]
+  }
+}
+```
+
+- `fit-only` skips candidates that cannot hold current context plus configured reserve.
+- `compact` first retries on fitting large-context equivalent or summarizer route. After successful turn, bridge model compacts session and switches to preferred smaller model.
+- Summarizer routes are tried only as context bridges; unavailable routes are skipped.
+
 ### Aliases
 
 Short names that point to any provider + model. No validation — just name it and use it.

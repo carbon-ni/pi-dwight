@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Account, FallbackGroup } from "../domain/accounts.js";
+import type { Account, FallbackGroup, FallbackSettings } from "../domain/accounts.js";
 import { filterVisibleModels as filterVisibleModelsDomain } from "../domain/visibility.js";
 
 export interface DisabledModel {
@@ -28,6 +28,7 @@ export interface AccountsConfig {
   disabledModels: DisabledModel[];
   aliases?: Alias[];
   fallbackGroups?: FallbackGroup[];
+  fallback?: FallbackSettings;
 }
 
 export interface ModelLike {
@@ -61,6 +62,7 @@ function normalizeConfig(config: Partial<AccountsConfig>): AccountsConfig {
     disabledModels: config.disabledModels ?? [],
     aliases: config.aliases ?? [],
     fallbackGroups: config.fallbackGroups ?? [],
+    fallback: config.fallback,
   };
 }
 
