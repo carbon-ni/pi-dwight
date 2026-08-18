@@ -15,6 +15,31 @@ describe("modelsForAccountProvider", () => {
     ]);
   });
 
+  it("applies account provider model overrides to inherited models", () => {
+    const models = [{
+      provider: "openai-codex",
+      id: "gpt-5.6-sol",
+      contextWindow: 272_000,
+      maxTokens: 128_000,
+      cost: { input: 5, output: 30 },
+    }];
+
+    expect(modelsForAccountProvider("openai-codex", models, fallback, {
+      "gpt-5.6-sol": { contextWindow: 580_000, cost: { input: 6 } },
+    })).toEqual([{
+      id: "gpt-5.6-sol",
+      contextWindow: 580_000,
+      maxTokens: 128_000,
+      cost: { input: 6, output: 30 },
+    }]);
+  });
+
+  it("ignores overrides for models outside inherited catalog", () => {
+    expect(modelsForAccountProvider("anthropic", [], fallback, {
+      "unknown-model": { contextWindow: 1 },
+    })).toBe(fallback);
+  });
+
   it("uses fallback models when the built-in provider is unavailable", () => {
     expect(modelsForAccountProvider("anthropic", [], fallback)).toBe(fallback);
   });

@@ -38,7 +38,8 @@ import {
   listAliases,
 } from "./src/infra/alias.js";
 import { getProviderType, getProviderTypeNames } from "./src/domain/providers.js";
-import { modelsForAccountProvider } from "./src/domain/inherited-models.js";
+import { applyModelOverrides, modelsForAccountProvider } from "./src/domain/inherited-models.js";
+import { readProviderModelOverrides } from "./src/infra/model-overrides.js";
 import {
   applyVisibilityRules,
   type ModelRegistryReader,
@@ -226,6 +227,7 @@ function registerAccountProvider(
     typeDef.builtInProvider,
     registryModels,
     typeDef.models,
+    readProviderModelOverrides(providerType),
   );
   const models = filterVisibleModels(name, accountModels);
   if (models.length === 0) return;
@@ -259,12 +261,16 @@ function registerAliasProvider(pi: ExtensionAPI, alias: { name: string; provider
 
   const modelDef = typeDef.models.find((m) => m.id === alias.model);
   if (!modelDef) return;
+  const [model] = applyModelOverrides(
+    [modelDef],
+    readProviderModelOverrides(account.provider),
+  );
 
   pi.registerProvider(`a/${alias.name}`, {
     name: `⭐ ${alias.name}`,
     baseUrl: typeDef.baseUrl,
     api: typeDef.api,
-    models: [modelDef],
+    models: [model],
     ...providerAuthConfig(typeDef, account, createOauthProvider),
   });
 }
