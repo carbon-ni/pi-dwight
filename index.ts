@@ -11,6 +11,7 @@
  *   /multi-account list                   — List all accounts
  *   /multi-account remove <provider> <id> — Remove an account
  *   /multi-account show <provider> <id>   — Show account details
+ *   /multi-account switch [provider]      — Switch session to another provider
  *
  * Flow:
  *   1. /multi-account add openai personal

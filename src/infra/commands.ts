@@ -26,6 +26,9 @@ import {
 import { addAliasWithPicker, type AliasPickerUi } from "../infra/alias-ui.js";
 import { formatVisibilityRules } from "../lib/visibility-format.js";
 import { keyDisplayStatus } from "../lib/resolve-key.js";
+import { buildSwitchTargets, type SwitchTarget } from "../domain/account-switch.js";
+import { pickSwitchTarget, type SwitchPickerUi } from "../infra/account-switch-ui.js";
+import { multiAccountCompletions } from "../infra/command-completions.js";
 
 /** Build "openai-personal" from "openai" + "personal". */
 function providerName(provider: string, id: string): string {
@@ -53,23 +56,13 @@ export interface MultiAccountCommandDeps {
 export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccountCommandDeps): void {
   pi.registerCommand("multi-account", {
     description: "Manage multi-account providers (OpenAI subscriptions)",
-    getArgumentCompletions: (prefix) => {
-      const subcommands = [
-        "add", "list", "remove", "show", "quotas",
-        "disable-provider", "enable-provider", "disable-model", "enable-model",
-        "visibility",
-        "alias-add", "alias-remove", "alias-list",
-      ];
-      const matching = subcommands.filter((s) => s.startsWith(prefix));
-      if (matching.length > 0) return matching.map((s) => ({ value: s, label: s }));
-      return null;
-    },
+    getArgumentCompletions: (prefix) => multiAccountCompletions(prefix, listAccounts()),
     handler: async (args, ctx) => {
       const parts = (args ?? "").trim().split(/\s+/);
       const sub = parts[0];
 
       if (!sub) {
-        ctx.ui.notify("Usage: /multi-account <add|list|remove|show> [...]", "warning");
+        ctx.ui.notify("Usage: /multi-account <add|list|remove|show|switch> [...]", "warning");
         return;
       }
 
@@ -231,6 +224,68 @@ export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccount
           return;
         }
 
+        // ── switch provider ──
+        case "switch": {
+          const current = ctx.model;
+          if (!current) {
+            ctx.ui.notify("No model selected. Pick a model first with /model.", "warning");
+            return;
+          }
+
+          const modelCtx = ctx as unknown as { modelRegistry: ModelRegistryReader };
+          const available = await getAvailableModels(modelCtx);
+          const targets = buildSwitchTargets(
+            { provider: current.provider, id: current.id },
+            available.map((model) => ({ provider: model.provider, id: model.id })),
+            listAccounts(),
+          );
+
+          const requestedProvider = parts[1];
+          let target: SwitchTarget | undefined;
+          if (requestedProvider) {
+            target = targets.find((candidate) => candidate.provider === requestedProvider);
+            if (!target) {
+              const names = targets.map((candidate) => candidate.provider);
+              ctx.ui.notify(
+                `Provider "${requestedProvider}" is not available for switching.` +
+                  (names.length > 0 ? `\nAvailable: ${names.join(", ")}` : ""),
+                "error",
+              );
+              return;
+            }
+          } else {
+            if (targets.length === 0) {
+              ctx.ui.notify("No other providers with available models to switch to.", "warning");
+              return;
+            }
+            target = await pickSwitchTarget(
+              ctx.ui as unknown as SwitchPickerUi,
+              targets,
+            );
+            if (!target) {
+              ctx.ui.notify("Cancelled.", "info");
+              return;
+            }
+          }
+
+          const targetModel = ctx.modelRegistry.find(target.provider, target.model);
+          if (!targetModel) {
+            ctx.ui.notify(`Target model unavailable: ${target.provider}/${target.model}`, "error");
+            return;
+          }
+          if (!await pi.setModel(targetModel)) {
+            ctx.ui.notify(`No credentials for ${target.provider}/${target.model}`, "error");
+            return;
+          }
+          ctx.ui.notify(
+            target.sameModel
+              ? `Switched to ${target.provider}/${target.model} (same model).`
+              : `Switched to ${target.provider}/${target.model} (model changed: ${target.model}).`,
+            "info",
+          );
+          break;
+        }
+
         // ── alias commands ──
         case "alias-add": {
           const name = parts[1];
@@ -294,7 +349,7 @@ export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccount
 
         default:
           ctx.ui.notify(
-            `Unknown subcommand "${sub}". Use: add, list, remove, show, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
+            `Unknown subcommand "${sub}". Use: add, list, remove, show, quotas, switch, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
             "error",
           );
       }

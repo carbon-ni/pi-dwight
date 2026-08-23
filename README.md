@@ -22,6 +22,7 @@ No config needed — just start using the commands. State is persisted to `~/.pi
 /multi-account remove <provider> <id>    Remove an account
 /multi-account show <provider> <id>      Show account details
 /multi-account quotas                    Open a quota overview popup
+/multi-account switch [provider]         Switch session to another provider
 ```
 
 **Quick start:**
@@ -32,6 +33,17 @@ No config needed — just start using the commands. State is persisted to `~/.pi
 ```
 
 Provider names follow the pattern `{provider}-{id}` (e.g., `openai-personal`, `openai-work`).
+
+### Switch provider in the current session
+
+`/multi-account switch` keeps the current model and jumps to another provider that carries it. Same-provider-type accounts rank first, so switching away from an account close to its limit (e.g. `openai-work`) to another account of the same type (`openai-personal`) keeps the exact model. Providers without the current model fall back to their first available model and are flagged as a model change.
+
+```
+/multi-account switch               Interactive picker
+/multi-account switch openai-personal   Switch to a specific provider
+```
+
+Provider names autocomplete after `/multi-account switch ` (e.g. type `openai-` to see `openai-personal`, `openai-work`).
 
 ### Quota overview
 
