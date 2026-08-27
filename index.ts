@@ -3,7 +3,6 @@
 import { type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Key } from "@mariozechner/pi-tui";
 
-const QUOTA_OVERVIEW_SHORTCUTS = [Key.f6] as const;
 import {
   type OAuthCredentials,
   type OAuthLoginCallbacks,
@@ -298,9 +297,7 @@ export default function (pi: ExtensionAPI) {
       ctx.modelRegistry as unknown as { find(provider: string, model: string): unknown | undefined },
       projectDefaults.defaultModels,
     );
-    if (applied) {
-      ctx.ui.notify(`Dwight project default model: ${applied.provider}/${applied.model}`, "info");
-    }
+    if (applied) ctx.ui.notify(`Dwight project default model: ${applied.provider}/${applied.model}`, "info");
   });
 
   const failoverFrom = async (
@@ -446,7 +443,7 @@ export default function (pi: ExtensionAPI) {
     });
   };
 
-  for (const shortcut of QUOTA_OVERVIEW_SHORTCUTS) {
+  for (const shortcut of [Key.f6] as const) {
     pi.registerShortcut(shortcut, {
       description: "Open or close the multi-account quota overview",
       handler: showQuotaOverview,
