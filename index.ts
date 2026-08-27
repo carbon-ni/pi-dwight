@@ -40,7 +40,7 @@ import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
 import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
-import { isQuotaExhausted } from "./src/domain/account-priority.js";
+import { failoverIfActiveQuotaExhausted } from "./src/infra/active-quota-failover.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -331,7 +331,6 @@ export default function (pi: ExtensionAPI) {
       findModel: (provider, model) => ctx.modelRegistry.find(provider, model),
       setModel: (model) => pi.setModel(model),
     });
-
     if (!result) {
       ctx.ui.notify(`No usable fallback for ${failedModel.provider}/${failedModel.id}`, "warning");
       return;
@@ -341,7 +340,6 @@ export default function (pi: ExtensionAPI) {
       "warning",
     );
     if (!result.handoffTarget || contextPolicy !== "compact") return;
-
     pendingHandoff = {
       bridge: { provider: result.to, model: result.model },
       target: result.handoffTarget,
@@ -352,30 +350,17 @@ export default function (pi: ExtensionAPI) {
     );
   };
 
-  async function failoverIfQuotaExhausted(
-    currentModel: { provider: string; id: string },
-    ctx: ExtensionContext,
-  ): Promise<void> {
-    const credentials = {
-      getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider),
-    };
-    const accounts = [
-      ...listAccounts(),
-      ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
-    ];
-    const account = findAccountForProvider(accounts, currentModel.provider);
-    if (!account) return;
-
-    const usage = await fetchMultiAccountQuota(credentials, account);
-    if (!isQuotaExhausted(usage)) return;
-
-    await failoverFrom(currentModel, ctx);
-  }
-
   pi.on("before_agent_start", async (_event, ctx) => {
     rateLimitedProviders.clear();
-    if (!ctx.model) return;
-    await failoverIfQuotaExhausted({ provider: ctx.model.provider, id: ctx.model.id }, ctx);
+    const model = ctx.model;
+    if (!model) return;
+    const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
+    await failoverIfActiveQuotaExhausted({
+      currentProvider: model.provider,
+      listAccounts: async () => [...listAccounts(), ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames())],
+      readQuota: (account) => fetchMultiAccountQuota(credentials, account),
+      failover: () => failoverFrom({ provider: model.provider, id: model.id }, ctx),
+    });
   });
 
   const compactAndHandoff = (
