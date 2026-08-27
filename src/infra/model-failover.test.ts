@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Account } from "../domain/accounts.js";
-import { failoverRateLimitedModel, isUsageLimitError } from "./model-failover.js";
+import { failoverRateLimitedModel } from "./model-failover.js";
 
 const accounts: Account[] = [
   { provider: "openai", id: "personal", key: "" },
@@ -19,21 +19,6 @@ const quotaResults = {
     items: [{ kind: "quota" as const, label: "Weekly", usedPercent: 20, resetsAt: new Date("2026-04-21T12:00:00Z") }],
   },
 };
-
-describe("isUsageLimitError", () => {
-  it("detects provider usage-limit errors after SDK retries fail", () => {
-    expect(isUsageLimitError('429: {"code":"1308","message":"Usage limit reached for 5 hour"}')).toBe(true);
-  });
-
-  it("detects Codex usage-limit errors that omit an HTTP status", () => {
-    expect(isUsageLimitError("Codex error: The usage limit has been reached")).toBe(true);
-  });
-
-  it("does not treat unrelated failures as subscription exhaustion", () => {
-    expect(isUsageLimitError("429: Too many concurrent requests")).toBe(false);
-    expect(isUsageLimitError("500: Internal server error")).toBe(false);
-  });
-});
 
 describe("failoverRateLimitedModel", () => {
   it("switches the same model to the best available account", async () => {

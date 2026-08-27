@@ -60,7 +60,8 @@ import { createQuotaOverviewWidget } from "./src/infra/quota-overview-ui.js";
 import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
-import { failoverRateLimitedModel, isUsageLimitError } from "./src/infra/model-failover.js";
+import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
+import { isQuotaExhausted } from "./src/domain/account-priority.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -323,10 +324,6 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  pi.on("before_agent_start", () => {
-    rateLimitedProviders.clear();
-  });
-
   const failoverFrom = async (
     failedModel: { provider: string; id: string },
     ctx: ExtensionContext,
@@ -361,7 +358,7 @@ export default function (pi: ExtensionAPI) {
       return;
     }
     ctx.ui.notify(
-      `Usage limit reached: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
+      `Quota exhausted: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
       "warning",
     );
     if (!result.handoffTarget || contextPolicy !== "compact") return;
@@ -375,6 +372,32 @@ export default function (pi: ExtensionAPI) {
       "info",
     );
   };
+
+  async function failoverIfQuotaExhausted(
+    currentModel: { provider: string; id: string },
+    ctx: ExtensionContext,
+  ): Promise<void> {
+    const credentials = {
+      getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider),
+    };
+    const accounts = [
+      ...listAccounts(),
+      ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames()),
+    ];
+    const account = findAccountForProvider(accounts, currentModel.provider);
+    if (!account) return;
+
+    const usage = await fetchMultiAccountQuota(credentials, account);
+    if (!isQuotaExhausted(usage)) return;
+
+    await failoverFrom(currentModel, ctx);
+  }
+
+  pi.on("before_agent_start", async (_event, ctx) => {
+    rateLimitedProviders.clear();
+    if (!ctx.model) return;
+    await failoverIfQuotaExhausted({ provider: ctx.model.provider, id: ctx.model.id }, ctx);
+  });
 
   const compactAndHandoff = (
     ctx: ExtensionContext,
@@ -424,9 +447,6 @@ export default function (pi: ExtensionAPI) {
       compactAndHandoff(ctx, handoff);
       return;
     }
-    if (assistant.stopReason !== "error" || !isUsageLimitError(assistant.errorMessage)) return;
-
-    await failoverFrom({ provider: assistant.provider, id: assistant.model }, ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {

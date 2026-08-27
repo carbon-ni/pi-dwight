@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { rankQuotaAccounts } from "./account-priority.js";
+import { isQuotaExhausted, rankQuotaAccounts } from "./account-priority.js";
+
+describe("isQuotaExhausted", () => {
+  it("detects a fully consumed quota window from the usage API", () => {
+    expect(isQuotaExhausted({
+      success: true,
+      items: [{ kind: "quota", label: "5 hour", usedPercent: 100, resetsAt: new Date("2026-04-14T12:41:00Z") }],
+    })).toBe(true);
+  });
+
+  it("does not infer exhaustion from failed or still-available usage data", () => {
+    expect(isQuotaExhausted({ success: false, error: "Unavailable" })).toBe(false);
+    expect(isQuotaExhausted({
+      success: true,
+      items: [{ kind: "quota", label: "5 hour", usedPercent: 99, resetsAt: new Date("2026-04-14T12:41:00Z") }],
+    })).toBe(false);
+  });
+});
 
 describe("rankQuotaAccounts", () => {
   const now = new Date("2026-04-14T12:00:00Z");

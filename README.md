@@ -49,9 +49,9 @@ Provider names autocomplete after `/multi-account switch ` (e.g. type `openai-` 
 
 Run `/multi-account quotas` or press `F6` to open a compact popup immediately while it fetches every configured account concurrently. Press `F6`, `Esc`, or `Enter` to close it. Failed or unsupported quota lookups remain visible with the returned error.
 
-### Automatic rate-limit fallback
+### Automatic quota fallback
 
-When active account returns a recognised usage-limit error (including HTTP `429`), Dwight keeps same model and switches to account whose remaining quota expires fastest. Accounts already rate-limited during current agent run are skipped, preventing loops.
+Before each agent run, Dwight checks the active account's provider usage API. When it reports a fully consumed quota window, Dwight keeps same model and switches to account whose remaining quota expires fastest. Exhausted accounts are skipped, preventing loops.
 
 Cross-model or cross-provider switching only happens inside explicit equivalence groups in `~/.pi/agent/multi-account.json`:
 

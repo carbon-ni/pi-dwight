@@ -12,6 +12,12 @@ export interface QuotaPriority {
   pressure: number;
 }
 
+/** Explicit exhaustion reported by a provider's usage API; fetch failures are not exhaustion. */
+export function isQuotaExhausted(result: ProviderUsageResult): boolean {
+  if (!result.success) return false;
+  return result.items.some((item) => item.kind === "quota" && item.usedPercent >= 100);
+}
+
 /** Remaining percentage points that expire per hour. Higher means use sooner. */
 export function quotaPriority(result: ProviderUsageResult, now: Date): QuotaPriority | undefined {
   if (!result.success) return undefined;
