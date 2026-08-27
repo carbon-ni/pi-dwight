@@ -1,25 +1,4 @@
-/**
- * Multi-Account Extension
- *
- * Manage multiple OpenAI subscription accounts (ChatGPT Plus/Pro/Codex).
- * Each account uses its own OAuth login via pi's built-in /login command.
- *
- * Accounts stored in ~/.pi/agent/multi-account.json
- *
- * Commands:
- *   /multi-account add <provider> <id>    — Register a new account
- *   /multi-account list                   — List all accounts
- *   /multi-account remove <provider> <id> — Remove an account
- *   /multi-account show <provider> <id>   — Show account details
- *   /multi-account switch [provider]      — Switch session to another provider
- *
- * Flow:
- *   1. /multi-account add openai personal
- *   2. /login openai-personal
- *   3. /model → sees openai-personal/gpt-4o etc.
- *
- * Provider names: {provider}-{id} (e.g., openai-personal, openai-work)
- */
+/** Multi-account Pi extension composition root. */
 
 import { type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Key } from "@mariozechner/pi-tui";
