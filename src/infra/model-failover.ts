@@ -28,8 +28,10 @@ export interface ModelFailoverOptions<TModel extends { contextWindow: number }> 
 
 /** Provider exhausted a subscription window, rather than transient request throttling. */
 export function isUsageLimitError(message: string | undefined): boolean {
-  if (!message || !/\b429\b/.test(message)) return false;
-  return /usage limit reached|quota (?:has been )?exceeded|weekly limit|hourly limit/i.test(message);
+  if (!message) return false;
+  if (/\busage limit (?:has been )?reached\b/i.test(message)) return true;
+  if (!/\b429\b/.test(message)) return false;
+  return /quota (?:has been )?exceeded|weekly limit|hourly limit/i.test(message);
 }
 
 export interface ModelFailoverResult {

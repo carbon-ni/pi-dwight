@@ -25,6 +25,10 @@ describe("isUsageLimitError", () => {
     expect(isUsageLimitError('429: {"code":"1308","message":"Usage limit reached for 5 hour"}')).toBe(true);
   });
 
+  it("detects Codex usage-limit errors that omit an HTTP status", () => {
+    expect(isUsageLimitError("Codex error: The usage limit has been reached")).toBe(true);
+  });
+
   it("does not treat unrelated failures as subscription exhaustion", () => {
     expect(isUsageLimitError("429: Too many concurrent requests")).toBe(false);
     expect(isUsageLimitError("500: Internal server error")).toBe(false);

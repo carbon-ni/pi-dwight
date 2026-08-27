@@ -51,7 +51,7 @@ Run `/multi-account quotas` or press `F6` to open a compact popup immediately wh
 
 ### Automatic rate-limit fallback
 
-When active account returns HTTP `429`, Dwight keeps same model and switches to account whose remaining quota expires fastest. Accounts already rate-limited during current agent run are skipped, preventing loops.
+When active account returns a recognised usage-limit error (including HTTP `429`), Dwight keeps same model and switches to account whose remaining quota expires fastest. Accounts already rate-limited during current agent run are skipped, preventing loops.
 
 Cross-model or cross-provider switching only happens inside explicit equivalence groups in `~/.pi/agent/multi-account.json`:
 
