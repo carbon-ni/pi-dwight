@@ -9,6 +9,7 @@ import {
 } from "@mariozechner/pi-ai";
 import {
   filterVisibleModels,
+  getConfigPath,
   listAccounts,
   readConfig,
   setAccountQuotaAccountId,
@@ -40,12 +41,14 @@ import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
 import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
 import { failoverIfActiveQuotaExhausted } from "./src/infra/active-quota-failover.js";
+import { createFailoverDiagnostics } from "./src/infra/failover-diagnostics.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { statSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
 
 function findPiAiDist(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
@@ -264,6 +267,7 @@ function findAccountByProviderName(providerName: string) {
 export default function (pi: ExtensionAPI) {
   const rateLimitedProviders = new Set<string>();
   const rateLimitResponseProviders = new Set<string>();
+  const diagnostics = createFailoverDiagnostics(join(dirname(getConfigPath()), "multi-account-failover.jsonl"), appendFile);
   let pendingHandoff: {
     bridge: { provider: string; model: string };
     target: { provider: string; model: string };
@@ -305,7 +309,10 @@ export default function (pi: ExtensionAPI) {
     failedModel: { provider: string; id: string },
     ctx: ExtensionContext,
   ): Promise<void> => {
-    if (rateLimitedProviders.has(failedModel.provider)) return;
+    if (rateLimitedProviders.has(failedModel.provider)) {
+      void diagnostics.record({ event: "fallback-blocked", provider: failedModel.provider });
+      return;
+    }
     rateLimitedProviders.add(failedModel.provider);
 
     const credentials = {
@@ -330,9 +337,11 @@ export default function (pi: ExtensionAPI) {
       setModel: (model) => pi.setModel(model),
     });
     if (!result) {
+      void diagnostics.record({ event: "fallback-unavailable", provider: failedModel.provider });
       ctx.ui.notify(`No usable fallback for ${failedModel.provider}/${failedModel.id}`, "warning");
       return;
     }
+    void diagnostics.record({ event: "fallback-selected", provider: result.from, target: `${result.to}/${result.model}` });
     ctx.ui.notify(
       `Quota exhausted: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
       "warning",
@@ -358,6 +367,7 @@ export default function (pi: ExtensionAPI) {
       listAccounts: async () => [...listAccounts(), ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames())],
       readQuota: (account) => fetchMultiAccountQuota(credentials, account),
       failover: () => failoverFrom({ provider: model.provider, id: model.id }, ctx),
+      onDecision: (outcome) => diagnostics.record({ event: "quota-check", provider: model.provider, outcome }),
     });
   };
 
@@ -368,7 +378,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("after_provider_response", (event, ctx) => {
-    if (event.status === 429 && ctx.model) rateLimitResponseProviders.add(ctx.model.provider);
+    if (event.status !== 429 || !ctx.model) return;
+    rateLimitResponseProviders.add(ctx.model.provider);
+    void diagnostics.record({ event: "http-429", provider: ctx.model.provider });
   });
 
   const compactAndHandoff = (

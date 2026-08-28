@@ -5,6 +5,7 @@ describe("failoverIfActiveQuotaExhausted", () => {
   it("fails over when the active account has a fully consumed quota window", async () => {
     const account = { provider: "openai", id: "second", key: "" };
     const failover = vi.fn().mockResolvedValue(undefined);
+    const onDecision = vi.fn();
 
     const failedOver = await failoverIfActiveQuotaExhausted({
       currentProvider: "openai-second",
@@ -14,10 +15,12 @@ describe("failoverIfActiveQuotaExhausted", () => {
         items: [{ kind: "quota", label: "5 hour", usedPercent: 100, resetsAt: new Date("2026-04-14T12:41:00Z") }],
       }),
       failover,
+      onDecision,
     });
 
     expect(failedOver).toBe(true);
     expect(failover).toHaveBeenCalledOnce();
+    expect(onDecision).toHaveBeenCalledWith("exhausted");
   });
 
   it("does not fail over when usage is unavailable or not exhausted", async () => {
