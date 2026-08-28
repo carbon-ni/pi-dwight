@@ -263,6 +263,7 @@ function findAccountByProviderName(providerName: string) {
 
 export default function (pi: ExtensionAPI) {
   const rateLimitedProviders = new Set<string>();
+  const rateLimitResponseProviders = new Set<string>();
   let pendingHandoff: {
     bridge: { provider: string; model: string };
     target: { provider: string; model: string };
@@ -347,10 +348,10 @@ export default function (pi: ExtensionAPI) {
     );
   };
 
-  pi.on("before_agent_start", async (_event, ctx) => {
-    rateLimitedProviders.clear();
-    const model = ctx.model;
-    if (!model) return;
+  const failoverFromExhaustedQuota = async (
+    model: NonNullable<ExtensionContext["model"]>,
+    ctx: ExtensionContext,
+  ): Promise<void> => {
     const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
     await failoverIfActiveQuotaExhausted({
       currentProvider: model.provider,
@@ -358,6 +359,16 @@ export default function (pi: ExtensionAPI) {
       readQuota: (account) => fetchMultiAccountQuota(credentials, account),
       failover: () => failoverFrom({ provider: model.provider, id: model.id }, ctx),
     });
+  };
+
+  pi.on("before_agent_start", async (_event, ctx) => {
+    rateLimitedProviders.clear();
+    rateLimitResponseProviders.clear();
+    if (ctx.model) await failoverFromExhaustedQuota(ctx.model, ctx);
+  });
+
+  pi.on("after_provider_response", (event, ctx) => {
+    if (event.status === 429 && ctx.model) rateLimitResponseProviders.add(ctx.model.provider);
   });
 
   const compactAndHandoff = (
@@ -408,6 +419,9 @@ export default function (pi: ExtensionAPI) {
       compactAndHandoff(ctx, handoff);
       return;
     }
+    if (assistant.stopReason !== "error" || !rateLimitResponseProviders.has(assistant.provider)) return;
+    const model = ctx.model;
+    if (model && model.provider === assistant.provider) await failoverFromExhaustedQuota(model, ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {
