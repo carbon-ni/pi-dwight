@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isQuotaExhausted, rankQuotaAccounts } from "./account-priority.js";
+import { isQuotaExhausted, isQuotaThresholdReached, rankQuotaAccounts } from "./account-priority.js";
 
 describe("isQuotaExhausted", () => {
   it("detects a fully consumed quota window from the usage API", () => {
@@ -15,6 +15,19 @@ describe("isQuotaExhausted", () => {
       success: true,
       items: [{ kind: "quota", label: "5 hour", usedPercent: 99, resetsAt: new Date("2026-04-14T12:41:00Z") }],
     })).toBe(false);
+  });
+});
+
+describe("isQuotaThresholdReached", () => {
+  it("reaches a configurable threshold without treating an invalid threshold as exhausted", () => {
+    const usage = {
+      success: true as const,
+      items: [{ kind: "quota" as const, label: "5 hour", usedPercent: 95, resetsAt: new Date("2026-04-14T12:41:00Z") }],
+    };
+
+    expect(isQuotaThresholdReached(usage, 95)).toBe(true);
+    expect(isQuotaThresholdReached(usage, 96)).toBe(false);
+    expect(isQuotaThresholdReached(usage, 101)).toBe(false);
   });
 });
 

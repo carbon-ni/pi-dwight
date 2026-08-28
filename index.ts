@@ -40,7 +40,7 @@ import { registerMultiAccountCommand } from "./src/infra/commands.js";
 import { providerAuthConfig } from "./src/infra/provider-auth.js";
 import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js";
 import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
-import { failoverIfActiveQuotaExhausted } from "./src/infra/active-quota-failover.js";
+import { failoverIfActiveQuotaThresholdReached } from "./src/infra/active-quota-failover.js";
 import { createFailoverDiagnostics } from "./src/infra/failover-diagnostics.js";
 
 // ── Dynamic import of internal OAuth utilities ──
@@ -343,7 +343,7 @@ export default function (pi: ExtensionAPI) {
     }
     void diagnostics.record({ event: "fallback-selected", provider: result.from, target: `${result.to}/${result.model}` });
     ctx.ui.notify(
-      `Quota exhausted: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
+      `Quota threshold reached: ${result.from}/${failedModel.id} → ${result.to}/${result.model}`,
       "warning",
     );
     if (!result.handoffTarget || contextPolicy !== "compact") return;
@@ -357,13 +357,19 @@ export default function (pi: ExtensionAPI) {
     );
   };
 
-  const failoverFromExhaustedQuota = async (
+  const failoverFromQuotaThreshold = async (
     model: NonNullable<ExtensionContext["model"]>,
     ctx: ExtensionContext,
   ): Promise<void> => {
     const credentials = { getApiKey: (provider: string) => ctx.modelRegistry.getApiKeyForProvider(provider) };
-    await failoverIfActiveQuotaExhausted({
+    const configuredThreshold = readConfig().fallback?.usageThresholdPercent;
+    const thresholdPercent = typeof configuredThreshold === "number" &&
+      Number.isFinite(configuredThreshold) && configuredThreshold >= 1 && configuredThreshold <= 100
+      ? configuredThreshold
+      : 100;
+    await failoverIfActiveQuotaThresholdReached({
       currentProvider: model.provider,
+      thresholdPercent,
       listAccounts: async () => [...listAccounts(), ...await listDefaultQuotaAccounts(credentials, getProviderTypeNames())],
       readQuota: (account) => fetchMultiAccountQuota(credentials, account),
       failover: () => failoverFrom({ provider: model.provider, id: model.id }, ctx),
@@ -374,7 +380,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", async (_event, ctx) => {
     rateLimitedProviders.clear();
     rateLimitResponseProviders.clear();
-    if (ctx.model) await failoverFromExhaustedQuota(ctx.model, ctx);
+    if (ctx.model) await failoverFromQuotaThreshold(ctx.model, ctx);
   });
 
   pi.on("after_provider_response", (event, ctx) => {
@@ -433,7 +439,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (assistant.stopReason !== "error" || !rateLimitResponseProviders.has(assistant.provider)) return;
     const model = ctx.model;
-    if (model && model.provider === assistant.provider) await failoverFromExhaustedQuota(model, ctx);
+    if (model && model.provider === assistant.provider) await failoverFromQuotaThreshold(model, ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {

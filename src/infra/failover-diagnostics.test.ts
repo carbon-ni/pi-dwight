@@ -6,11 +6,11 @@ describe("createFailoverDiagnostics", () => {
     const append = vi.fn().mockResolvedValue(undefined);
     const diagnostics = createFailoverDiagnostics("/tmp/failover.jsonl", append);
 
-    await diagnostics.record({ event: "quota-check", provider: "zai", outcome: "exhausted" });
+    await diagnostics.record({ event: "quota-check", provider: "zai", outcome: "threshold-reached" });
 
     expect(append).toHaveBeenCalledWith(
       "/tmp/failover.jsonl",
-      expect.stringMatching(/^\{"timestamp":".+","event":"quota-check","provider":"zai","outcome":"exhausted"\}\n$/),
+      expect.stringMatching(/^\{"timestamp":".+","event":"quota-check","provider":"zai","outcome":"threshold-reached"\}\n$/),
       "utf8",
     );
   });

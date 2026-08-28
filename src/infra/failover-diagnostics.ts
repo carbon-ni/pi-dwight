@@ -1,7 +1,7 @@
 type FailoverDiagnostic = {
   event: "quota-check" | "http-429" | "fallback-selected" | "fallback-unavailable" | "fallback-blocked";
   provider: string;
-  outcome?: "available" | "exhausted" | "unavailable" | "unmanaged";
+  outcome?: "available" | "threshold-reached" | "unavailable" | "unmanaged";
   target?: string;
 };
 

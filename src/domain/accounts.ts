@@ -13,6 +13,8 @@ export interface FallbackGroup {
 export interface FallbackSettings {
   contextPolicy?: "fit-only" | "compact";
   contextReservePercent?: number;
+  /** Switch before any active quota window reaches this percentage (1–100). Defaults to 100. */
+  usageThresholdPercent?: number;
   /** Large-context routes allowed to bridge and summarize before smaller-model handoff. */
   summarizerModels?: FallbackModel[];
 }

@@ -72,11 +72,14 @@ Cross-model or cross-provider switching only happens inside explicit equivalence
 
 Only put equivalent quality levels in same group. Quota pressure chooses best usable account; listed order breaks ties. Exhausted, unavailable, unauthenticated, and already rate-limited routes are skipped. Without matching group, Dwight never changes model family automatically.
 
+Set `usageThresholdPercent` (1–100, default `100`) to switch before an active quota window is fully consumed. For example, `95` keeps a 5% buffer and avoids requests racing a quota limit.
+
 For sessions larger than preferred fallback model, configure context-aware handoff:
 
 ```json
 {
   "fallback": {
+    "usageThresholdPercent": 95,
     "contextPolicy": "compact",
     "contextReservePercent": 15,
     "summarizerModels": [

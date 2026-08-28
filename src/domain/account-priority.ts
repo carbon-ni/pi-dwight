@@ -18,6 +18,13 @@ export function isQuotaExhausted(result: ProviderUsageResult): boolean {
   return result.items.some((item) => item.kind === "quota" && item.usedPercent >= 100);
 }
 
+/** True when a quota window meets a valid configured failover threshold. */
+export function isQuotaThresholdReached(result: ProviderUsageResult, thresholdPercent: number): boolean {
+  if (!Number.isFinite(thresholdPercent) || thresholdPercent < 1 || thresholdPercent > 100) return false;
+  if (!result.success) return false;
+  return result.items.some((item) => item.kind === "quota" && item.usedPercent >= thresholdPercent);
+}
+
 /** Remaining percentage points that expire per hour. Higher means use sooner. */
 export function quotaPriority(result: ProviderUsageResult, now: Date): QuotaPriority | undefined {
   if (!result.success) return undefined;
