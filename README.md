@@ -51,7 +51,7 @@ Run `/multi-account quotas` or press `F6` to open a compact popup immediately wh
 
 ### Automatic quota fallback
 
-Before each agent run, Dwight checks the active account's provider usage API. When it reports a fully consumed quota window, Dwight keeps same model and switches to account whose remaining quota expires fastest. Exhausted accounts are skipped, preventing loops. Diagnostics are appended to `~/.pi/agent/multi-account-failover.jsonl` without credentials; they record quota decisions, HTTP 429s, and fallback outcomes.
+Before each agent run, Dwight checks the active account's provider usage API. When it reports a fully consumed quota window, Dwight keeps same model and switches to account whose remaining quota expires fastest. Exhausted accounts are skipped, preventing loops. Diagnostics are appended to `~/.pi/logs/multi-account-failover.jsonl` without credentials; they record quota decisions, HTTP 429s, and fallback outcomes.
 
 Cross-model or cross-provider switching only happens inside explicit equivalence groups in `~/.pi/agent/multi-account.json`:
 

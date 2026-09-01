@@ -11,6 +11,7 @@ import {
   removeAccount,
   setConfigDir,
   getConfigPath,
+  getFailoverLogPath,
   readConfig,
   writeConfig,
 } from "./config.js";
@@ -31,6 +32,12 @@ describe("config", () => {
   describe("getConfigPath", () => {
     it("returns path inside the configured directory", () => {
       expect(getConfigPath()).toBe(join(tmpDir, "multi-account.json"));
+    });
+  });
+
+  describe("getFailoverLogPath", () => {
+    it("stores logs in the configured directory's logs subdirectory", () => {
+      expect(getFailoverLogPath()).toBe(join(tmpDir, "logs", "multi-account-failover.jsonl"));
     });
   });
 

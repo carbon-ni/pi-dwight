@@ -9,7 +9,7 @@ import {
 } from "@mariozechner/pi-ai";
 import {
   filterVisibleModels,
-  getConfigPath,
+  getFailoverLogPath,
   listAccounts,
   readConfig,
   setAccountQuotaAccountId,
@@ -47,7 +47,7 @@ import { createFailoverDiagnostics } from "./src/infra/failover-diagnostics.js";
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { statSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 
 function findPiAiDist(): string {
@@ -267,7 +267,9 @@ function findAccountByProviderName(providerName: string) {
 export default function (pi: ExtensionAPI) {
   const rateLimitedProviders = new Set<string>();
   const rateLimitResponseProviders = new Set<string>();
-  const diagnostics = createFailoverDiagnostics(join(dirname(getConfigPath()), "multi-account-failover.jsonl"), appendFile);
+  const failoverLogPath = getFailoverLogPath();
+  mkdirSync(dirname(failoverLogPath), { recursive: true });
+  const diagnostics = createFailoverDiagnostics(failoverLogPath, appendFile);
   let pendingHandoff: {
     bridge: { provider: string; model: string };
     target: { provider: string; model: string };

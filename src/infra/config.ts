@@ -1,6 +1,6 @@
 /**
  * Config file read/write for multi-account data.
- * Stores accounts in ~/.pi/agent/multi-account.json
+ * Stores accounts in ~/.pi/agent/multi-account.json and failover logs in ~/.pi/logs/
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
@@ -45,6 +45,11 @@ export function setConfigDir(dir: string | undefined): void {
 export function getConfigPath(): string {
   const dir = _configDir ?? join(homedir(), ".pi", "agent");
   return join(dir, "multi-account.json");
+}
+
+export function getFailoverLogPath(): string {
+  const dir = _configDir ? join(_configDir, "logs") : join(homedir(), ".pi", "logs");
+  return join(dir, "multi-account-failover.jsonl");
 }
 
 function configPath(): string {
