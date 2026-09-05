@@ -59,4 +59,30 @@ describe("multiAccountCompletions", () => {
 
     expect(items?.map((item) => item.value)).toEqual(["switch zai"]);
   });
+
+  it("completes the failover subcommand from a partial prefix", () => {
+    const items = multiAccountCompletions("fail", accounts);
+
+    expect(items).toEqual([{ value: "failover", label: "failover" }]);
+  });
+
+  it("offers off, on and status after the failover keyword", () => {
+    const items = multiAccountCompletions("failover ", accounts);
+
+    expect(items).toEqual([
+      { value: "failover off", label: "off" },
+      { value: "failover on", label: "on" },
+      { value: "failover status", label: "status" },
+    ]);
+  });
+
+  it("filters failover arguments by the typed prefix", () => {
+    const items = multiAccountCompletions("failover o", accounts);
+
+    expect(items?.map((item) => item.value)).toEqual(["failover off", "failover on"]);
+  });
+
+  it("returns null when no failover argument matches the typed prefix", () => {
+    expect(multiAccountCompletions("failover x", accounts)).toBeNull();
+  });
 });

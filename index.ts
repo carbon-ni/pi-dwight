@@ -42,6 +42,7 @@ import { listDefaultQuotaAccounts } from "./src/infra/default-quota-accounts.js"
 import { failoverRateLimitedModel } from "./src/infra/model-failover.js";
 import { failoverIfActiveQuotaThresholdReached } from "./src/infra/active-quota-failover.js";
 import { createFailoverDiagnostics } from "./src/infra/failover-diagnostics.js";
+import { createFailoverPin, createSuppressionRecorder, type SuppressionUi } from "./src/infra/failover-pin.js";
 
 // ── Dynamic import of internal OAuth utilities ──
 // Not publicly exported by pi-ai. Resolve absolute path from node_modules.
@@ -270,6 +271,8 @@ export default function (pi: ExtensionAPI) {
   const failoverLogPath = getFailoverLogPath();
   mkdirSync(dirname(failoverLogPath), { recursive: true });
   const diagnostics = createFailoverDiagnostics(failoverLogPath, appendFile);
+  const failoverPin = createFailoverPin();
+  const suppressionRecorder = createSuppressionRecorder({ diagnostics });
   let pendingHandoff: {
     bridge: { provider: string; model: string };
     target: { provider: string; model: string };
@@ -281,6 +284,8 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     quotaBaselines.clear();
+    failoverPin.reset();
+    suppressionRecorder.reset();
     await refreshQuotaStatus(ctx as unknown as QuotaStatusContext);
     const registry = ctx.modelRegistry as unknown as ModelRegistryReader;
     const catalogModels = registry.getAll?.() ?? await registry.getAvailable();
@@ -382,7 +387,12 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", async (_event, ctx) => {
     rateLimitedProviders.clear();
     rateLimitResponseProviders.clear();
-    if (ctx.model) await failoverFromQuotaThreshold(ctx.model, ctx);
+    if (!ctx.model) return;
+    if (failoverPin.isDisabled()) {
+      suppressionRecorder.recordSuppressed(ctx.ui as unknown as SuppressionUi, ctx.model.provider, "quota-threshold");
+      return;
+    }
+    await failoverFromQuotaThreshold(ctx.model, ctx);
   });
 
   pi.on("after_provider_response", (event, ctx) => {
@@ -441,7 +451,12 @@ export default function (pi: ExtensionAPI) {
     }
     if (assistant.stopReason !== "error" || !rateLimitResponseProviders.has(assistant.provider)) return;
     const model = ctx.model;
-    if (model && model.provider === assistant.provider) await failoverFromQuotaThreshold(model, ctx);
+    if (!model || model.provider !== assistant.provider) return;
+    if (failoverPin.isDisabled()) {
+      suppressionRecorder.recordSuppressed(ctx.ui as unknown as SuppressionUi, model.provider, "rate-limit");
+      return;
+    }
+    await failoverFromQuotaThreshold(model, ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {
@@ -491,5 +506,15 @@ export default function (pi: ExtensionAPI) {
     refreshVisibility,
     showQuotaOverview,
     catalogModels: [],
+    failover: {
+      // Disabling also cancels an armed bridge handoff: the session is pinned,
+      // so no automatic model change may happen after `failover off`.
+      disable: () => {
+        failoverPin.disable();
+        pendingHandoff = undefined;
+      },
+      enable: () => failoverPin.enable(),
+      isDisabled: () => failoverPin.isDisabled(),
+    },
   });
 }

@@ -11,9 +11,18 @@ export interface CompletionItem {
 const SUBCOMMANDS = [
   "add", "list", "remove", "show", "quotas", "switch",
   "disable-provider", "enable-provider", "disable-model", "enable-model",
-  "visibility",
+  "visibility", "failover",
   "alias-add", "alias-remove", "alias-list",
 ];
+
+const FAILOVER_ARGS = ["off", "on", "status"];
+
+function failoverCompletions(query: string): CompletionItem[] | null {
+  const matching = FAILOVER_ARGS.filter((arg) => !query || arg.startsWith(query));
+  return matching.length > 0
+    ? matching.map((arg) => ({ value: `failover ${arg}`, label: arg }))
+    : null;
+}
 
 function providerCompletions(accounts: Account[], query: string): CompletionItem[] | null {
   const providers = accounts
@@ -52,6 +61,7 @@ export function multiAccountCompletions(
   }
 
   const [sub, ...rest] = prefix.trim().split(/\s+/);
+  if (sub === "failover") return failoverCompletions(rest.join(" "));
   if (sub !== "switch") return null;
 
   return providerCompletions(accounts, rest.join(" "));

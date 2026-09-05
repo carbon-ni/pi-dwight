@@ -51,6 +51,12 @@ export interface MultiAccountCommandDeps {
   showQuotaOverview: (ctx: ExtensionContext) => Promise<void>;
   /** Already-resolved provider catalog models (pre-fetched). */
   catalogModels: RegistryModel[];
+  /** Session-scoped auto-failover switch (in-memory, composition-root owned). */
+  failover: {
+    disable(): void;
+    enable(): void;
+    isDisabled(): boolean;
+  };
 }
 
 export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccountCommandDeps): void {
@@ -62,7 +68,7 @@ export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccount
       const sub = parts[0];
 
       if (!sub) {
-        ctx.ui.notify("Usage: /multi-account <add|list|remove|show|switch> [...]", "warning");
+        ctx.ui.notify("Usage: /multi-account <add|list|remove|show|switch|failover> [...]", "warning");
         return;
       }
 
@@ -347,9 +353,58 @@ export function registerMultiAccountCommand(pi: ExtensionAPI, deps: MultiAccount
           break;
         }
 
+        // ── session-scoped failover switch ──
+        case "failover": {
+          const arg = parts[1];
+          if (!arg) {
+            ctx.ui.notify(
+              "Usage: /multi-account failover <off|on|status>\n" +
+                `Auto-failover is currently ${deps.failover.isDisabled() ? "disabled" : "enabled"} for this session.`,
+              "warning",
+            );
+            return;
+          }
+          switch (arg) {
+            case "off": {
+              if (deps.failover.isDisabled()) {
+                ctx.ui.notify("Auto-failover is already disabled for this session.", "info");
+                return;
+              }
+              deps.failover.disable();
+              ctx.ui.notify(
+                "Auto-failover disabled for this session: providers will not switch automatically.\n" +
+                  "Re-enable with /multi-account failover on.",
+                "warning",
+              );
+              return;
+            }
+            case "on": {
+              if (!deps.failover.isDisabled()) {
+                ctx.ui.notify("Auto-failover is already enabled.", "info");
+                return;
+              }
+              deps.failover.enable();
+              ctx.ui.notify("Auto-failover enabled for this session.", "info");
+              return;
+            }
+            case "status": {
+              ctx.ui.notify(
+                deps.failover.isDisabled()
+                  ? "Auto-failover: disabled (this session).\nRe-enable with /multi-account failover on."
+                  : "Auto-failover: enabled (default).",
+                "info",
+              );
+              return;
+            }
+            default:
+              ctx.ui.notify(`Unknown failover argument "${arg}". Use: off, on, status`, "error");
+              return;
+          }
+        }
+
         default:
           ctx.ui.notify(
-            `Unknown subcommand "${sub}". Use: add, list, remove, show, quotas, switch, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
+            `Unknown subcommand "${sub}". Use: add, list, remove, show, quotas, switch, failover, alias-add, alias-remove, alias-list, disable-provider, enable-provider, disable-model, enable-model, visibility`,
             "error",
           );
       }
